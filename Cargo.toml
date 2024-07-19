@@ -1,8 +1,8 @@
 [package]
 name = "rust_tcp_sever"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["AmakeSasha amakesasha@gmail.com"]
-license = "LGPL-2.1-only AND MIT AND BSD-2-Clause"
+license = "MIT license"
 description = "A simple and lightweight crate for launching and using a server"
 
 repository = "https://github.com/Amakesasha/Rust-TcpServer"

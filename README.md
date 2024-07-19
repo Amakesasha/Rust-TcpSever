@@ -1,6 +1,7 @@
 # Rust TCP Server. 
 
-A simple and lightweight crate for launching and using a server. 
+A simple and lightweight crate for launching and using a server. This server Not used libraries!
+Documented [server_tcp.rs](https://github.com/Amakesasha/Rust-TcpServer/blob/main/src/server_tcp.rs) and [lib.rs](https://github.com/Amakesasha/Rust-TcpServer/blob/main/src/lib.rs)
 Source [code link](https://github.com/Amakesasha/Rust-TcpServer)
 
 # Usage example: 
@@ -9,8 +10,8 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-	// Start Default Server: TcpListener::bind(addr).unwrap()
-	// 4 == Number Thread Pool (thread_pool.rs)
+	// Start Default Server: TcpListener::bind(addr).unwrap().
+	// 4 == Number Thread Pool (thread_pool.rs).
     Server::start_def_server("127.0.0.1:8080", 4);
 }
 
@@ -20,7 +21,7 @@ impl ServerControl for Server {
 	// If None, HTTP = 1.1
     const TYPE_HTTP: Option<&'static str> = Some("HTTP/2.0");
 
-    // Match GET requesr
+    // Match GET requesr.
     // If no Make Response, will come back 404 ERROR.
     fn match_get(request: &Request, response: &mut Response) {
         match request.metod_url_http[1].as_str() {
@@ -36,11 +37,11 @@ impl ServerControl for Server {
         }
     }
 
-    // Match POST requesr
+    // Match POST requesr. 
     fn match_post(_request: &Request, response: &mut Response) {
     	response.set_redirect("/qwe");
     }
-    // Match PUT requesr
+    // Match PUT requesr.
     fn match_put(_request: &Request, _response: &mut Response) {}
 }
 
