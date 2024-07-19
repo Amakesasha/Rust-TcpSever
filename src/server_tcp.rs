@@ -5,10 +5,17 @@ use std::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
 };
 
+/// Train Control Server.
 pub trait ServerControl {
+    /// Const write version HTTP. 
+    /// When Invalid HTTP, HTTP = 1.0. 
+    /// When const = None, HTTP = 1.1.
     const TYPE_HTTP: Option<&'static str>;
 
     #[inline]
+    /// Launches Default Server (No Setting).
+    /// * addr = IpAddr for build Default Server (Implementing trait "ToSocketAddrs")
+    /// * num_thread_pool = Quantity Thread for build ThreadPool.
     fn start_def_server<A: ToSocketAddrs>(addr: A, num_thread_pool: usize) {
         Self::iter_incomung(
             TcpListener::bind(addr).unwrap(),
@@ -17,11 +24,18 @@ pub trait ServerControl {
     }
 
     #[inline]
+    /// Launches Your Server (You build Server and send in this function) 
+    /// ( TcpListener::bind(your_addr).unwrap() ).
+    /// * listener = Your Server. 
+    /// * num_thread_pool = Quantity Thread for build ThreadPool.
     fn start_my_server(listener: TcpListener, num_thread_pool: usize) {
         Self::iter_incomung(listener, ThreadPool::new(num_thread_pool));
     }
 
     #[inline]
+    /// Launches Read-Write Server. You can starting this function.
+    /// * listener = Server to which the connection is made. 
+    /// * pool = Threading system to ensure no queue. 
     fn iter_incomung(listener: TcpListener, pool: ThreadPool) {
         println!(
             "    Start Server on SocketAddr: {}",
@@ -33,6 +47,12 @@ pub trait ServerControl {
     }
 
     #[inline]
+    /// Read HTTP Request, make Response, and Write this Response.
+    /// At start, Requst Read and Write to byte Buffer, then byte Buffer transfer to Line.
+    /// Launches Parser with Line into Request, and make Response.
+    /// You check request and return Request (or Not return).
+    /// Response Write into Line, and Write to Client Buffer.
+    /// * stream = IpAddr client for Read and Write. Only from the server!
     fn handle_connection(mut stream: TcpStream) {
         let mut buf_reader = BufReader::new(&mut stream);
         let mut buffer = [32; 1024];
@@ -66,22 +86,44 @@ pub trait ServerControl {
         }
     }
 
+    /// Your check request with metod GET (usually for send html/css file).
+    /// * requset = Parsed Http Request.
+    /// * response = Your Response. 
     fn match_get(request: &Request, response: &mut Response);
+    /// Your check request with metod POST (usually to redirect the user).
+    /// * requset = Parsed Http Request.
+    /// * response = Your Response. 
     fn match_post(request: &Request, response: &mut Response);
+    /// Your check request with metod PUT (usually to send data requested by the site).
+    /// * requset = Parsed Http Request.
+    /// * response = Your Response. 
     fn match_put(request: &Request, response: &mut Response);
 }
 
-//
-
 #[allow(dead_code)]
 #[derive(Debug)]
+/// Request Structure
 pub struct Request {
+    /// Vector Length = 3.
+    /// * 0 = Metod Request (For example: GET, POST, PUT).
+    /// * 1 = Url Request (For example: /sign, /find/qwe).
+    /// * 2 = Type Http (For example: HTTP/1.1, HTTP/2.0).
     pub metod_url_http: Vec<String>,
+    /// Cookies Files. For edit Cookies files, used Response, Not request!
+    /// For find, you can used metod .find(YourName).unwrap() 
     pub cookie_files: HashMap<String, String>,
+    /// Add Contents. When your site requests the code, the information goes here.
+    /// For find, you can used metod .find(YourName).unwrap()
     pub add_contents: HashMap<String, String>,
 }
 
+/// Functions for Parsed Http into Structure.
 impl Request {
+    /// Main Function Parsed. Used null, uncertain and last Line Request. 
+    /// * data = Http Request. \n
+    /// * Null = Metod, Url, Http.
+    /// * Uncertain = Parsed, If code find Cookies Line, else Empty.
+    /// * Last = Parsed, If Line Not have Cookies, else Empty.
     pub fn parse_to_self(data: &str) -> Request {
         let mut cookie_files = HashMap::new();
         let mut add_contents = HashMap::new();
@@ -104,6 +146,9 @@ impl Request {
         }
     }
 
+    /// Function for parse Line into HashMap.
+    /// * data = Line Parsed.
+    /// * char_split = Char used for Split Line.
     fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
         data.split(char_split)
             .filter_map(
@@ -120,18 +165,24 @@ impl Request {
 
 #[allow(dead_code)]
 #[derive(Debug, Default)]
+/// Response Structure
 pub struct Response {
+    /// Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK),
     pub status_line: String,
+    /// Data Response (For example: HTML/CSS file, Json code).
     pub data: String,
-
+    /// Cookies Files, Write into structure for easy development.
     pub cookie: Cookie,
+    /// Add Setting Response (For example: Content-Type, Data).
     pub setting_content: String,
 }
 
-use std::fmt::Display as WritT;
+use std::fmt::Display;
 
+/// Functions: Make a new structure and Write structure into Line.
 impl Response {
     #[inline]
+    /// Make a new structure.
     pub fn new() -> Response {
         Response {
             status_line: String::from("404 NOT FOUND\r\n"),
@@ -143,55 +194,78 @@ impl Response {
     }
 
     #[inline]
-    pub fn format<Q: WritT>(&self, http: Q) -> String {
+    /// Write structure into Line.
+    /// * http = Type Http. You can used &str and String.
+    pub fn format<Q: Display>(&self, http: Q) -> String {
         format!(
             "{} {}\r\n{}{}{}",
             http, self.status_line, self.cookie.0, self.setting_content, self.data,
         )
     }
+}
 
+/// Functions for edit Response.
+impl Response {
     #[inline]
-    pub fn set_response<Q: WritT, W: WritT>(&mut self, status: Q, data: W) {
+    /// Set Response. You can used &str and String.
+    /// * status = Status Response.
+    /// * data = Write Data.
+    pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, data: W) {
         self.status_line = status.to_string();
         self.data = format!("\r\n\r\n{}", data);
     }
 
-    pub fn response_add_content<Q: WritT, W: WritT>(&mut self, sc: Q, value: W) {
+    /// Addition Add Setting Response. You can used &str and String. 
+    /// Don't used "Content-Type" with set_redirect!
+    /// * sc = Name Setting (For example: Content-Type).
+    /// * value = Value Setting (For example: text/html).
+    pub fn response_add_content<Q: Display, W: Display>(&mut self, sc: Q, value: W) {
         self.setting_content
             .push_str(&format!("{}: {}\r\n", sc, value));
     }
 
     #[inline]
-    pub fn set_redirect<Q: WritT>(&mut self, location: Q) {
+    /// Redirect client. You can used &str and String. 
+    /// * location = Redirect Url.
+    pub fn set_redirect<Q: Display>(&mut self, location: Q) {
         self.status_line = format!("302 FOUND");
         self.data = format!("Location: {}", location);
     }
 
     #[inline]
-    pub fn set_status_line<Q: WritT>(&mut self, error_code: Q) {
+    /// Set Status Response. You can used &str and String. I don't know how this used) 
+    pub fn set_status_line<Q: Display>(&mut self, error_code: Q) {
         self.status_line = error_code.to_string();
     }
-
-    //
 }
 
 #[derive(Debug, Default)]
+/// Cookies Files.
 pub struct Cookie(pub String);
 
+/// Functions Make and Edit Cookies.
 impl Cookie {
+    /// Make a new Cookies Files.
     #[inline]
     pub const fn new() -> Self {
         Cookie { 0: String::new() }
     }
 
     #[inline]
-    pub fn add<Q: WritT, W: WritT>(&mut self, name: Q, value: W) {
+    /// Addition Cookie. You can used &str and String.
+    /// At Set the cookie Value, then Set the cookie other Value, will be done last action. 
+    /// * name = Name Cookie.
+    /// * value = Name Cookie
+    pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
         self.0
             .push_str(&format!("Set-Cookie: {}={}\r\n", name, value));
     }
 
     #[inline]
-    pub fn delete<Q: WritT>(&mut self, name: Q) {
+    /// Delete Cookie. You can used &str and String. 
+    /// At add the cookie, then delete the cookie, will be done last action.
+    /// * name = Name Cookie.
+    pub fn delete<Q: Display>(&mut self, name: Q) {
         self.0.push_str(&format!(
             "Set-Cookie: {}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n",
             name
