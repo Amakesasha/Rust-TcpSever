@@ -2,7 +2,7 @@
 name = "rust_tcp_sever"
 version = "0.1.1"
 authors = ["AmakeSasha amakesasha@gmail.com"]
-license = "MIT license"
+license = "LGPL-2.1-only AND MIT AND BSD-2-Clause"
 description = "A simple and lightweight crate for launching and using a server"
 
 repository = "https://github.com/Amakesasha/Rust-TcpServer"
