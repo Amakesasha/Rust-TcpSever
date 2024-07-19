@@ -1,0 +1,10 @@
+[package]
+name = "rust_tcp_sever"
+version = "0.1.0"
+authors = ["AmakeSasha"]
+license = "LGPL-2.1-only AND MIT AND BSD-2-Clause"
+
+repository = "https://github.com/Amakesasha/Rust-TcpServer"
+readme = "README.md"
+
+[dependencies]
