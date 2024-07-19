@@ -2,48 +2,57 @@ use crate::*;
 use std::{
     collections::HashMap,
     io::{BufReader, Read, Write},
-    net::{TcpListener, TcpStream, ToSocketAddrs},
+    net::{TcpListener, TcpStream},
+    thread::spawn as thread_spawn,
 };
 
-/// Train Control Server.
+/// Tcp Server Structure.
+pub struct TcpServer {
+    /// TcpListener.
+    listener: TcpListener,
+    /// Thread Pool for no queue.
+    thread_pool: ThreadPool,
+}
+
+/// Functions for work with TcpServer.
+impl TcpServer {
+    #[inline]
+    /// Make a new TcpServer.
+    /// * listener = TcpListener, the basis of the entire server.
+    /// * thread_pool = Thread Pool for no queue.
+    pub fn new(listener: TcpListener, thread_pool: ThreadPool) -> Self {
+        Self {
+            listener,
+            thread_pool,
+        }
+    }
+}
+
+/// Trait Control Server.
 pub trait ServerControl {
-    /// Const write version HTTP. 
-    /// When Invalid HTTP, HTTP = 1.0. 
-    /// When const = None, HTTP = 1.1.
+    /// Const write version HTTP.
+    /// * When Invalid HTTP, HTTP = 1.0.
+    /// * When const = None, HTTP = 1.1.
     const TYPE_HTTP: Option<&'static str>;
 
     #[inline]
-    /// Launches Default Server (No Setting).
-    /// * addr = IpAddr for build Default Server (Implementing trait "ToSocketAddrs")
-    /// * num_thread_pool = Quantity Thread for build ThreadPool.
-    fn start_def_server<A: ToSocketAddrs>(addr: A, num_thread_pool: usize) {
-        Self::iter_incomung(
-            TcpListener::bind(addr).unwrap(),
-            ThreadPool::new(num_thread_pool),
-        );
+    /// Launches Read-Write Server, in Many Thread Mode.
+    /// * server = TcpServer.
+    fn launch(server: TcpServer) {
+        server.listener.incoming().for_each(|stream| {
+            server
+                .thread_pool
+                .execute(|| Self::handle_connection(stream.unwrap()))
+        });
     }
 
     #[inline]
-    /// Launches Your Server (You build Server and send in this function) 
-    /// ( TcpListener::bind(your_addr).unwrap() ).
-    /// * listener = Your Server. 
-    /// * num_thread_pool = Quantity Thread for build ThreadPool.
-    fn start_my_server(listener: TcpListener, num_thread_pool: usize) {
-        Self::iter_incomung(listener, ThreadPool::new(num_thread_pool));
-    }
-
-    #[inline]
-    /// Launches Read-Write Server. You can starting this function.
-    /// * listener = Server to which the connection is made. 
-    /// * pool = Threading system to ensure no queue. 
-    fn iter_incomung(listener: TcpListener, pool: ThreadPool) {
-        println!(
-            "    Start Server on SocketAddr: {}",
-            listener.local_addr().unwrap()
-        );
-        for stream in listener.incoming() {
-            pool.execute(|| Self::handle_connection(stream.unwrap()));
-        }
+    /// Launches Read-Write Server, in One Thread Mode. Not recommended!
+    /// * listener = TcpListener, the basis of the entire server.
+    fn launc_one_thread(listener: TcpListener) {
+        listener.incoming().for_each(|stream| {
+            thread_spawn(|| Self::handle_connection(stream.unwrap()));
+        });
     }
 
     #[inline]
@@ -88,15 +97,15 @@ pub trait ServerControl {
 
     /// Your check request with metod GET (usually for send html/css file).
     /// * requset = Parsed Http Request.
-    /// * response = Your Response. 
+    /// * response = Your Response.
     fn match_get(request: &Request, response: &mut Response);
     /// Your check request with metod POST (usually to redirect the user).
     /// * requset = Parsed Http Request.
-    /// * response = Your Response. 
+    /// * response = Your Response.
     fn match_post(request: &Request, response: &mut Response);
     /// Your check request with metod PUT (usually to send data requested by the site).
     /// * requset = Parsed Http Request.
-    /// * response = Your Response. 
+    /// * response = Your Response.
     fn match_put(request: &Request, response: &mut Response);
 }
 
@@ -110,7 +119,7 @@ pub struct Request {
     /// * 2 = Type Http (For example: HTTP/1.1, HTTP/2.0).
     pub metod_url_http: Vec<String>,
     /// Cookies Files. For edit Cookies files, used Response, Not request!
-    /// For find, you can used metod .find(YourName).unwrap() 
+    /// For find, you can used metod .find(YourName).unwrap()
     pub cookie_files: HashMap<String, String>,
     /// Add Contents. When your site requests the code, the information goes here.
     /// For find, you can used metod .find(YourName).unwrap()
@@ -119,7 +128,7 @@ pub struct Request {
 
 /// Functions for Parsed Http into Structure.
 impl Request {
-    /// Main Function Parsed. Used null, uncertain and last Line Request. 
+    /// Main Function Parsed. Used null, uncertain and last Line Request.
     /// * data = Http Request. \n
     /// * Null = Metod, Url, Http.
     /// * Uncertain = Parsed, If code find Cookies Line, else Empty.
@@ -215,7 +224,7 @@ impl Response {
         self.data = format!("\r\n\r\n{}", data);
     }
 
-    /// Addition Add Setting Response. You can used &str and String. 
+    /// Addition Add Setting Response. You can used &str and String.
     /// Don't used "Content-Type" with set_redirect!
     /// * sc = Name Setting (For example: Content-Type).
     /// * value = Value Setting (For example: text/html).
@@ -225,7 +234,7 @@ impl Response {
     }
 
     #[inline]
-    /// Redirect client. You can used &str and String. 
+    /// Redirect client. You can used &str and String.
     /// * location = Redirect Url.
     pub fn set_redirect<Q: Display>(&mut self, location: Q) {
         self.status_line = format!("302 FOUND");
@@ -233,7 +242,7 @@ impl Response {
     }
 
     #[inline]
-    /// Set Status Response. You can used &str and String. I don't know how this used) 
+    /// Set Status Response. You can used &str and String. I don't know how this used)
     pub fn set_status_line<Q: Display>(&mut self, error_code: Q) {
         self.status_line = error_code.to_string();
     }
@@ -253,7 +262,7 @@ impl Cookie {
 
     #[inline]
     /// Addition Cookie. You can used &str and String.
-    /// At Set the cookie Value, then Set the cookie other Value, will be done last action. 
+    /// At Set the cookie Value, then Set the cookie other Value, will be done last action.
     /// * name = Name Cookie.
     /// * value = Name Cookie
     pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
@@ -262,7 +271,7 @@ impl Cookie {
     }
 
     #[inline]
-    /// Delete Cookie. You can used &str and String. 
+    /// Delete Cookie. You can used &str and String.
     /// At add the cookie, then delete the cookie, will be done last action.
     /// * name = Name Cookie.
     pub fn delete<Q: Display>(&mut self, name: Q) {

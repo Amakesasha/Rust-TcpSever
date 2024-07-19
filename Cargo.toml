@@ -1,6 +1,6 @@
 [package]
 name = "rust_tcp_sever"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["AmakeSasha amakesasha@gmail.com"]
 license = "LGPL-2.1-only AND MIT AND BSD-2-Clause"
 description = "A simple and lightweight crate for launching and using a server"
