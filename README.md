@@ -1,6 +1,6 @@
 # Rust TCP Server. 
 
-A simple and lightweight crate for launching and using a server. Server has Many or One Thread Mode. Not used libraries!
+A simple and lightweight crate for launching and using a server. 
 
 # Reasons to choose Rust-TcpSever:
 * Not Used Third Party Library!
