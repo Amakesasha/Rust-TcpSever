@@ -10,26 +10,25 @@ fn main() {
 
 struct Server;
 
-impl ServerControl for Server {
+impl SeverControl for Server {
     const TYPE_HTTP: Option<&'static str> = Some("HTTP/2.0");
 
     fn match_get(request: &Request, response: &mut Response) {
         match request.metod_url_http[1].as_str() {
-            "/qwe" => {
-                response.set_response("200 OK", "All Good)");
-                response.response_add_content("Content-Type", "text/html");
-                response
-                    .cookie
-                    .add("ASDOhufhiaudhsu", "pidoasdgasfhgdfcxcrasina");
-                response.cookie.add("asdf", "fdsa");
+            "/response" => {
+                response.set_response("200 OK", "All Good");
+
+                response.setting.add("Content-Type", "text/html");
+
+                response.cookie.add("testName", "testValue");
                 response.cookie.delete("asdf");
             }
-            "/wer" => response.set_redirect("/qwe"),
+            "/wer" => response.set_redirect("/response"),
             _ => {}
         }
     }
     fn match_post(_request: &Request, response: &mut Response) {
-        response.set_redirect("/qwe");
+        response.set_redirect("/response");
     }
     fn match_put(_request: &Request, _response: &mut Response) {}
 }

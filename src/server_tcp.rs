@@ -9,9 +9,9 @@ use std::{
 /// Tcp Server Structure.
 pub struct TcpServer {
     /// TcpListener.
-    listener: TcpListener,
+    pub listener: TcpListener,
     /// Thread Pool for no queue.
-    thread_pool: ThreadPool,
+    pub thread_pool: ThreadPool,
 }
 
 /// Functions for work with TcpServer.
@@ -29,7 +29,7 @@ impl TcpServer {
 }
 
 /// Trait Control Server.
-pub trait ServerControl {
+pub trait SeverControl {
     /// Const write version HTTP.
     /// * When Invalid HTTP, HTTP = 1.0.
     /// * When const = None, HTTP = 1.1.
@@ -167,117 +167,5 @@ impl Request {
                 },
             )
             .collect()
-    }
-}
-
-//
-
-#[allow(dead_code)]
-#[derive(Debug, Default)]
-/// Response Structure
-pub struct Response {
-    /// Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK),
-    pub status_line: String,
-    /// Data Response (For example: HTML/CSS file, Json code).
-    pub data: String,
-    /// Cookies Files, Write into structure for easy development.
-    pub cookie: Cookie,
-    /// Add Setting Response (For example: Content-Type, Data).
-    pub setting_content: String,
-}
-
-use std::fmt::Display;
-
-/// Functions: Make a new structure and Write structure into Line.
-impl Response {
-    #[inline]
-    /// Make a new structure.
-    pub fn new() -> Response {
-        Response {
-            status_line: String::from("404 NOT FOUND\r\n"),
-            data: String::new(),
-
-            cookie: Cookie::new(),
-            setting_content: String::new(),
-        }
-    }
-
-    #[inline]
-    /// Write structure into Line.
-    /// * http = Type Http. You can used &str and String.
-    pub fn format<Q: Display>(&self, http: Q) -> String {
-        format!(
-            "{} {}\r\n{}{}{}",
-            http, self.status_line, self.cookie.0, self.setting_content, self.data,
-        )
-    }
-}
-
-/// Functions for edit Response.
-impl Response {
-    #[inline]
-    /// Set Response. You can used &str and String.
-    /// * status = Status Response.
-    /// * data = Write Data.
-    pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, data: W) {
-        self.status_line = status.to_string();
-        self.data = format!("\r\n\r\n{}", data);
-    }
-
-    /// Addition Add Setting Response. You can used &str and String.
-    /// Don't used "Content-Type" with set_redirect!
-    /// * sc = Name Setting (For example: Content-Type).
-    /// * value = Value Setting (For example: text/html).
-    pub fn response_add_content<Q: Display, W: Display>(&mut self, sc: Q, value: W) {
-        self.setting_content
-            .push_str(&format!("{}: {}\r\n", sc, value));
-    }
-
-    #[inline]
-    /// Redirect client. You can used &str and String.
-    /// * location = Redirect Url.
-    pub fn set_redirect<Q: Display>(&mut self, location: Q) {
-        self.status_line = format!("302 FOUND");
-        self.data = format!("Location: {}", location);
-    }
-
-    #[inline]
-    /// Set Status Response. You can used &str and String. I don't know how this used)
-    pub fn set_status_line<Q: Display>(&mut self, error_code: Q) {
-        self.status_line = error_code.to_string();
-    }
-}
-
-#[derive(Debug, Default)]
-/// Cookies Files.
-pub struct Cookie(pub String);
-
-/// Functions Make and Edit Cookies.
-impl Cookie {
-    /// Make a new Cookies Files.
-    #[inline]
-    pub const fn new() -> Self {
-        Cookie { 0: String::new() }
-    }
-
-    #[inline]
-    /// Addition Cookie. You can used &str and String.
-    /// At Set the cookie Value, then Set the cookie other Value, will be done last action.
-    /// * name = Name Cookie.
-    /// * value = Name Cookie
-    pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
-        self.0
-            .push_str(&format!("Set-Cookie: {}={}\r\n", name, value));
-    }
-
-    #[inline]
-    /// Delete Cookie. You can used &str and String.
-    /// At add the cookie, then delete the cookie, will be done last action.
-    /// * name = Name Cookie.
-    pub fn delete<Q: Display>(&mut self, name: Q) {
-        self.0.push_str(&format!(
-            "Set-Cookie: {}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n",
-            name
-        ));
     }
 }
