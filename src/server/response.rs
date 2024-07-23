@@ -97,7 +97,7 @@ impl Response {
 
             match file.read_to_string(&mut contents) {
                 Ok(_) => {
-                    self.set_data("200 OK", contents);
+                    self.set_response("200 OK", contents);
 
                     return;
                 }
