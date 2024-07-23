@@ -5,7 +5,7 @@ version = "0.1.4"
 authors = ["AmakeSasha amakesasha@gmail.com"]
 description = "A simple and lightweight crate for launching and using a server"
 
-license-file = "LICENSE.md"
+license-file = "LICENSE"
 repository = "https://github.com/Amakesasha/Rust-TcpSever"
 readme = "README.md"
 
