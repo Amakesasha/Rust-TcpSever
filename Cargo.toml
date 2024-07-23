@@ -1,11 +1,28 @@
 [package]
 name = "rust_tcp_sever"
-version = "0.1.3"
+version = "0.1.4"
+
 authors = ["AmakeSasha amakesasha@gmail.com"]
-license = "MIT AND Apache-2.0"
 description = "A simple and lightweight crate for launching and using a server"
 
-repository = "https://github.com/Amakesasha/Rust-TcpServer"
+license-file = "LICENSE.md"
+repository = "https://github.com/Amakesasha/Rust-TcpSever"
 readme = "README.md"
 
-[dependencies]
+keywords = ["tcp_server", "rust_server", "rust_tcp_server", "web", "tcp"]
+categories = ["web-programming::http-server", "web-programming"]
+
+
+[profile.dev]
+opt-level = "s"
+debug = false
+strip = "none"
+debug-assertions = false
+lto = "thin"
+
+[profile.release]
+opt-level = "s"
+debug = false
+strip = "none"
+debug-assertions = false
+lto = "thin"

@@ -1,9 +1,11 @@
-#[allow(dead_code)]
-#[derive(Debug, Default)]
+use crate::*;
+use std::{fmt::Display, fs::File, io::Read};
+
+#[derive(Debug, Clone, Default)]
 /// Response Structure
 pub struct Response {
     /// Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK).
-    pub status_line: String,
+    pub status_code: String,
     /// Data Response (For example: HTML/CSS file, Json code).
     pub data: String,
     /// Cookies Files, Write into structure for easy development.
@@ -12,15 +14,25 @@ pub struct Response {
     pub setting: SettingResponse,
 }
 
-use std::fmt::{Display, Debug};
-
 /// Functions: Make a new structure and Write structure into Line.
 impl Response {
     #[inline]
-    /// Make a new structure.
+    /// Make a New Structure.
     pub fn new() -> Response {
         Response {
-            status_line: String::from("404 NOT FOUND"),
+            status_code: String::from("404 NOT FOUND"),
+            data: String::new(),
+
+            cookie: Cookie::new(),
+            setting: SettingResponse::new(),
+        }
+    }
+
+    #[inline]
+    /// Make a New Default Structure.
+    pub const fn const_new() -> Response {
+        Response {
+            status_code: String::new(),
             data: String::new(),
 
             cookie: Cookie::new(),
@@ -32,9 +44,25 @@ impl Response {
     /// Write structure into Line.
     /// * http = Type Http. You can used &str or String.
     pub fn format<Q: Display>(&self, http: Q) -> String {
+        if self.status_code == String::from("404 NOT FOUND") || self.status_code.is_empty() {
+            return unsafe { Self::format_arg(&http, "200 OK", &DEF_PAGE) };
+        }
+
+        return Self::format_arg(&http, &self.status_code, self);
+    }
+
+    #[inline]
+    /// Parse Structure into Line. You don't used this function, but you can.
+    /// * http = Type Http.
+    /// * response = Response which will into Line.
+    pub fn format_arg<Q: Display, W: Display + ?Sized>(
+        http: &Q,
+        status_code: &W,
+        response: &Response,
+    ) -> String {
         format!(
             "{} {}\r\n{}{}{}",
-            http, self.status_line, self.cookie.0, self.setting.0, self.data,
+            http, status_code, response.cookie.0, response.setting.0, response.data,
         )
     }
 }
@@ -46,23 +74,45 @@ impl Response {
     /// * status = Status Response.
     /// * data = Write Data.
     pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, data: W) {
-        self.status_line = status.to_string();
-        self.data.push_str(&format!("\r\n\r\n{}", data));
+        self.status_code = status.to_string();
+        self.data = format!("\r\n\r\n{}", data);
     }
 
     #[inline]
-    /// Redirect client. You can used &str or String
+    /// Redirect client. You can used &str or String.
     /// Don't used "Content-Type" with this!
     /// * location = Redirect Url.
     pub fn set_redirect<Q: Display>(&mut self, location: Q) {
-        self.status_line = "302 FOUND".to_string();
-        self.data.push_str(&format!("Location: {}", location));
+        self.status_code = "302 FOUND".to_string();
+        self.data = format!("Location: {}", location);
+    }
+
+    #[inline]
+    /// Read File and Write it Client. If don't open file, status code will set 404 NOT FOUND.
+    /// You can used &str or String.
+    /// * name_file = Name Readed File.
+    pub fn set_file<Q: Display + std::convert::AsRef<std::path::Path>>(&mut self, name_file: Q) {
+        if let Ok(mut file) = File::open(name_file) {
+            let mut contents = String::new();
+
+            match file.read_to_string(&mut contents) {
+                Ok(_) => {
+                    self.status_code = "200 OK".to_string();
+                    self.data = format!("Location: {}", contents);
+
+                    return;
+                }
+                Err(_) => {}
+            }
+        }
+
+        self.status_code = "404 NOT FOUND".to_string();
     }
 }
 
 //
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 /// Cookies Files.
 pub struct Cookie(pub String);
 
@@ -96,7 +146,7 @@ impl Cookie {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 /// Setting Response.
 pub struct SettingResponse(pub String);
 

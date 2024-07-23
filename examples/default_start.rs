@@ -34,26 +34,10 @@ impl SeverControl for Server {
 
 impl Server {
     #[inline]
-    fn match_get(request: &Request, response: &mut Response) {
-        match request.metod_url_http[1].as_str() {
-            "/response" => {
-                response.set_response("200 OK", "All Good");
-
-                response.setting.add("Content-Type", "text/html");
-
-                response.cookie.add("testName", "testValue");
-                response.cookie.delete("asdf");
-            }
-            "/wer" => response.set_redirect("/response"),
-            "/sleep" => std::thread::sleep(std::time::Duration::from_secs(30)),
-            _ => {}
-        }
-    }
+    fn match_get(request: &Request, response: &mut Response) {}
 
     #[inline]
-    fn match_post(_request: &Request, response: &mut Response) {
-        response.set_redirect("/response");
-    }
+    fn match_post(_request: &Request, response: &mut Response) {}
 
     #[inline]
     fn match_put(_request: &Request, _response: &mut Response) {}
