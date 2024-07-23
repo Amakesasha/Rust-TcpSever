@@ -97,8 +97,7 @@ impl Response {
 
             match file.read_to_string(&mut contents) {
                 Ok(_) => {
-                    self.status_code = "200 OK".to_string();
-                    self.data = format!("Location: {}", contents);
+                    self.set_data("200 OK", contents);
 
                     return;
                 }
