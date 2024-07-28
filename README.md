@@ -47,10 +47,7 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-    TcpServer::set_def_page(Response::new_from_file(
-        "examples/defpage.html",
-        "text/html",
-    ));
+    TcpServer::set_def_page(Response::new_from_file("src/lib.rs", "text/html"));
 
     let server = TcpServer::new(Server::get_server("127.0.0.1:8077"), ThreadPool::new(4));
 
@@ -82,11 +79,20 @@ impl Server {
     #[inline]
     fn match_get(request: &Request, response: &mut Response) {
         match request.metod_url_http[1].as_str() {
-            "/response" => response.set_file("examples/webpage.html", "text/html"),
+            "/response" => {
+                response.set_file("src/main.rs", "text/html"),
 
-            "/image.png" => response.set_file("examples/image.png", "image/png"),
-            "/video.mp4" => response.set_file("examples/video.mp4", "video/mp4"),
-            "/audio.mp3" => response.set_file("examples/audio.mp3", "audio/mp3"),
+                response.setting.add("Data", "Now");
+
+               response.cookie.add("testName", "testValue");
+               response.cookie.delete("asdf");
+            }
+
+            // Not Inserted Due to Weight Restrictions :(
+
+            //"/image.png" => response.set_file("examples/image.png", "image/png"),
+            //"/video.mp4" => response.set_file("examples/video.mp4", "video/mp4"),
+            //"/audio.mp3" => response.set_file("examples/audio.mp3", "audio/mp3"),
 
             "/wer" => response.set_redirect("/response"),
 
