@@ -2,18 +2,19 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-    { // Not Necessary!
-        let mut response = Response::const_new();
-        response.set_file("src/main.rs");
-
-        TcpServer::set_def_page(response);
-    }
-
-    Server::launch(TcpServer::new(
-        TcpListener::bind("127.0.0.1:8080").unwrap(),
-        // number = Minimum Number of Workers (Request Processing Threads)
-        ThreadPool::new(4),
+    TcpServer::set_def_page(Response::new_from_file(
+        "examples/defpage.html",
+        "text/html",
     ));
+
+    let server = TcpServer::new(
+        Server::get_server("127.0.0.1:8077"),
+        // number = Minimum Number of Workers (Request Processing Threads)
+        // It is advisable not to install more than the cores in the processor.
+        ThreadPool::new(4),
+    );
+
+    Server::launch_range_port(server, 8075..8080);
 }
 
 struct Server;
@@ -30,31 +31,32 @@ impl SeverControl for Server {
             _ => {}
         }
     }
+
+    #[inline]
+    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener {
+        TcpListener::bind(ip_addr).unwrap()
+    }
 }
 
 impl Server {
     #[inline]
     fn match_get(request: &Request, response: &mut Response) {
         match request.metod_url_http[1].as_str() {
-            "/response" => {
-                response.set_response("200 OK", "All Good");
+            "/response" => response.set_file("examples/webpage.html", "text/html"),
 
-                response.setting.add("Content-Type", "text/html");
+            "/image.png" => response.set_file("examples/image.png", "image/png"),
+            "/video.mp4" => response.set_file("examples/video.mp4", "video/mp4"),
+            "/audio.mp3" => response.set_file("examples/audio.mp3", "audio/mp3"),
 
-                response.cookie.add("testName", "testValue");
-                response.cookie.delete("asdf");
-            }
             "/wer" => response.set_redirect("/response"),
+
             "/sleep" => std::thread::sleep(std::time::Duration::from_secs(30)),
             _ => {}
         }
     }
 
     #[inline]
-    fn match_post(_request: &Request, response: &mut Response) {
-        response.set_redirect("/response");
-    }
-
+    fn match_post(_request: &Request, _response: &mut Response) {}
     #[inline]
     fn match_put(_request: &Request, _response: &mut Response) {}
 }

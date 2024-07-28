@@ -1,7 +1,8 @@
 use crate::*;
 use std::{
     io::{BufReader, Read, Write},
-    net::{TcpListener, TcpStream},
+    net::{Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
+    ops::Range,
 };
 
 /// Tcp Server Structure.
@@ -10,18 +11,21 @@ pub struct TcpServer {
     pub listener: TcpListener,
     /// Thread Pool for no queue.
     pub thread_pool: ThreadPool,
+    /// IpAddr, Ip and Port.
+    pub socket_addr: SocketAddr,
 }
 
 /// Functions for work with TcpServer.
 impl TcpServer {
     #[inline]
-    /// Make a new TcpServer.
+    /// Make a New TcpServer.
     /// * listener = TcpListener, the basis of the entire server.
     /// * thread_pool = Thread Pool for no queue.
     pub fn new(listener: TcpListener, thread_pool: ThreadPool) -> Self {
         Self {
-            listener,
+            socket_addr: listener.local_addr().unwrap(),
             thread_pool,
+            listener,
         }
     }
 
@@ -31,12 +35,9 @@ impl TcpServer {
     pub fn read_stream_to_request(mut stream: &TcpStream) -> Option<Request> {
         let mut buffer = [32; 1024];
 
-        let str_request = match BufReader::new(&mut stream).read(&mut buffer) {
-            Ok(len) => match len == 0 {
-                true => return None,
-                false => String::from_utf8_lossy(&buffer[0..]),
-            },
-            Err(_) => return None,
+        let str_request = match BufReader::new(&mut stream).read(&mut buffer).unwrap_or(0) {
+            0 => return None,
+            _ => String::from_utf8_lossy(&buffer[0..]),
         };
 
         Some(Request::parse_to_self(str_request.trim()))
@@ -44,10 +45,12 @@ impl TcpServer {
 
     #[inline]
     /// Write Data in Stream.
-    /// * data = Data Writed Stream.
     /// * stream = IpAddr client for Read and Write. Only from the server!
-    pub fn write_stream(mut stream: &TcpStream, data: &String) -> () {
-        stream.write_all(data.as_bytes()).unwrap_or(())
+    /// * string_data = Line Data (For example: HTML, CSS, TextFile).
+    /// * binary_data = Binary Data (For example: Image, Video, GIF).
+    pub fn write_stream(mut stream: &TcpStream, string_data: &String, binary_data: &Vec<u8>) {
+        stream.write_all(string_data.as_bytes()).unwrap_or(());
+        stream.write_all(&binary_data).unwrap_or(());
     }
 
     #[inline]
@@ -73,13 +76,51 @@ pub trait SeverControl {
     const TYPE_HTTP: Option<&'static str>;
 
     #[inline]
-    /// Launches Read-Write Server, in Many Thread Mode.
+    /// Launches Read-Write Server.
     /// * server = TcpServer.
     fn launch(mut server: TcpServer) {
+        println!(
+            "SERVER | LAUNCH | {} | {}",
+            server.thread_pool.num_thr, server.socket_addr
+        );
+
         for stream in server.listener.incoming().filter_map(Result::ok) {
             server
                 .thread_pool
-                .execute(|| Self::handle_connection(stream))
+                .add_static_job(|| Self::handle_connection(stream));
+        }
+
+        println!(
+            "SERVER | SHOT DOWN | {} | {}",
+            server.thread_pool.num_thr, server.socket_addr
+        );
+    }
+
+    #[inline]
+    /// Launches Some Servers, Number Servers = Range. The Port from Creation Does Not Count!
+    /// * server = TcpServer.
+    /// * range = Number Servers.
+    fn launch_range_port(server: TcpServer, range: Range<u16>) {
+        println!(
+            "SERVERS | LAUNCH | {} | {}..{}\n",
+            range.len(),
+            range.start,
+            range.end - 1
+        );
+
+        let mut thread_pool = ThreadPool::new(range.len());
+        let num_thr = server.thread_pool.num_thr;
+        let ip = server.socket_addr.ip();
+
+        drop(server.listener);
+
+        for port in range {
+            thread_pool.add_const_job(move || {
+                Self::launch(TcpServer::new(
+                    Self::get_server(format!("{ip}:{port}")),
+                    ThreadPool::new(num_thr),
+                ));
+            });
         }
     }
 
@@ -93,14 +134,22 @@ pub trait SeverControl {
     fn handle_connection(stream: TcpStream) {
         match TcpServer::read_stream_to_request(&stream) {
             Some(request) => {
-                let mut response = Response::new();
+                let mut response = Response::const_new();
 
                 Self::match_methods(&request, &mut response);
 
-                TcpServer::write_stream(
-                    &stream,
-                    &response.format(Self::TYPE_HTTP.unwrap_or(&request.metod_url_http[2])),
-                )
+                let (format, use_self) =
+                    response.format(Self::TYPE_HTTP.unwrap_or(&request.metod_url_http[2]));
+
+                let binary_data = if use_self {
+                    &response.binary_data
+                } else {
+                    unsafe { &DEF_PAGE.binary_data }
+                };
+
+                TcpServer::write_stream(&stream, &format, binary_data);
+
+                stream.shutdown(Shutdown::Both).unwrap_or(());
             }
             None => return,
         }
@@ -111,4 +160,6 @@ pub trait SeverControl {
     /// * requset = Parsed Http Request.
     /// * response = Your Response.
     fn match_methods(request: &Request, response: &mut Response);
+    /// Function Get Your Custom Server.
+    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener;
 }

@@ -48,7 +48,7 @@ impl Request {
     /// Function for parse Line into HashMap.
     /// * data = Line Parsed.
     /// * char_split = Char used for Split Line.
-    fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
+    pub fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
         data.split(char_split)
             .filter_map(|part| {
                 if let [key, rest @ ..] = &part.split('=').collect::<Vec<&str>>()[..] {

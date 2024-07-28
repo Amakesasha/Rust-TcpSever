@@ -6,8 +6,10 @@ use std::{fmt::Display, fs::File, io::Read};
 pub struct Response {
     /// Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK).
     pub status_code: String,
-    /// Data Response (For example: HTML/CSS file, Json code).
-    pub data: String,
+    /// String Data Response (For example: HTML/CSS file, Json code).
+    pub string_data: String,
+    /// Binary Data Response (For example: Video, Music, Image).
+    pub binary_data: Vec<u8>,
     /// Cookies Files, Write into structure for easy development.
     pub cookie: Cookie,
     /// Add Setting Response (For example: Content-Type, Data).
@@ -17,23 +19,13 @@ pub struct Response {
 /// Functions: Make a new structure and Write structure into Line.
 impl Response {
     #[inline]
-    /// Make a New Structure.
-    pub fn new() -> Response {
-        Response {
-            status_code: String::from("404 NOT FOUND"),
-            data: String::new(),
-
-            cookie: Cookie::new(),
-            setting: SettingResponse::new(),
-        }
-    }
-
-    #[inline]
     /// Make a New Default Structure.
     pub const fn const_new() -> Response {
         Response {
             status_code: String::new(),
-            data: String::new(),
+            string_data: String::new(),
+
+            binary_data: Vec::new(),
 
             cookie: Cookie::new(),
             setting: SettingResponse::new(),
@@ -43,12 +35,15 @@ impl Response {
     #[inline]
     /// Write structure into Line.
     /// * http = Type Http. You can used &str or String.
-    pub fn format<Q: Display>(&self, http: Q) -> String {
+    pub fn format<Q: Display>(&self, http: Q) -> (String, bool) {
         if self.status_code == String::from("404 NOT FOUND") || self.status_code.is_empty() {
-            return unsafe { Self::format_arg(&http, "200 OK", &DEF_PAGE) };
+            return (
+                Self::format_arg(&http, "200 OK", unsafe { &DEF_PAGE }),
+                false,
+            );
         }
 
-        return Self::format_arg(&http, &self.status_code, self);
+        return (Self::format_arg(&http, &self.status_code, self), true);
     }
 
     #[inline]
@@ -62,7 +57,7 @@ impl Response {
     ) -> String {
         format!(
             "{} {}\r\n{}{}{}",
-            http, status_code, response.cookie.0, response.setting.0, response.data,
+            http, status_code, response.cookie.0, response.setting.0, response.string_data
         )
     }
 }
@@ -73,9 +68,9 @@ impl Response {
     /// Set Response. You can used &str or String.
     /// * status = Status Response.
     /// * data = Write Data.
-    pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, data: W) {
+    pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, string_data: W) {
         self.status_code = status.to_string();
-        self.data = format!("\r\n\r\n{}", data);
+        self.string_data = format!("\r\n{}", string_data);
     }
 
     #[inline]
@@ -84,20 +79,45 @@ impl Response {
     /// * location = Redirect Url.
     pub fn set_redirect<Q: Display>(&mut self, location: Q) {
         self.status_code = "302 FOUND".to_string();
-        self.data = format!("Location: {}", location);
+        self.string_data = format!("Location: {}", location);
+    }
+}
+
+/// Set and Make Response From Files
+impl Response {
+    #[inline]
+    /// Make a New Response from File. If don't open File, status code will set 404 NOT FOUND.
+    /// You can used &str or String.
+    /// * file_path = Path to File.
+    /// * type_file = Type File (For example: image/png, video/mp4).
+    pub fn new_from_file<Q, W>(file_path: Q, type_file: W) -> Response
+    where
+        Q: std::convert::AsRef<std::path::Path>,
+        W: Display,
+    {
+        let mut response = Response::const_new();
+        response.set_file(file_path, type_file);
+        return response;
     }
 
     #[inline]
-    /// Read File and Write it Client. If don't open file, status code will set 404 NOT FOUND.
+    /// Open File, Read, after Write to Client. If don't open file, status code will set 404 NOT FOUND.
     /// You can used &str or String.
-    /// * name_file = Name Readed File.
-    pub fn set_file<Q: Display + std::convert::AsRef<std::path::Path>>(&mut self, name_file: Q) {
-        if let Ok(mut file) = File::open(name_file) {
-            let mut contents = String::new();
+    /// * file_path = Path to File.
+    /// * type_file = Type File (For example: image/png, video/mp4).
+    pub fn set_file<Q, W>(&mut self, file_path: Q, type_file: W)
+    where
+        Q: std::convert::AsRef<std::path::Path>,
+        W: Display,
+    {
+        if let Ok(mut file) = File::open(file_path) {
+            let mut buffer = Vec::new();
 
-            match file.read_to_string(&mut contents) {
+            match file.read_to_end(&mut buffer) {
                 Ok(_) => {
-                    self.set_response("200 OK", contents);
+                    self.set_response("200 OK", "");
+                    self.binary_data = buffer;
+                    self.setting.add("Content-Type", type_file);
 
                     return;
                 }

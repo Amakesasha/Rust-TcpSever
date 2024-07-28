@@ -15,4 +15,4 @@ pub use crate::{
     server::{request::*, response::*, server_tcp::*},
     thread_pool::*,
 };
-pub use std::net::TcpListener;
+pub use std::net::{TcpListener, ToSocketAddrs};

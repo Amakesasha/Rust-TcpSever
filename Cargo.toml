@@ -12,7 +12,6 @@ readme = "README.md"
 keywords = ["tcp_server", "rust_server", "rust_tcp_server", "web", "tcp"]
 categories = ["web-programming::http-server", "web-programming"]
 
-
 [profile.dev]
 opt-level = "s"
 debug = false

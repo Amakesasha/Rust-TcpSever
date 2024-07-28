@@ -3,13 +3,15 @@ use std::{
     thread,
 };
 
+/// System Thread Pool.
 pub struct ThreadPool {
     /// Threads Job.
-    workers: Vec<Worker>,
+    pub workers: Vec<Worker>,
     /// Thread Send-Read.
-    sender: mpsc::Sender<JobForWorkers>,
+    pub sender: Option<mpsc::Sender<JobForWorkers>>,
+    pub receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>,
     /// Min number Workers.
-    size: usize,
+    pub num_thr: usize,
 }
 
 /// Number Job, which do Workers.
@@ -20,53 +22,66 @@ pub type JobForWorkers = Box<dyn FnOnce() + Send + 'static>;
 /// Functions to Make New Struct, Add Job and Add Worker.
 impl ThreadPool {
     #[inline]
-    /// Make a New Thread Pool, and Make Min (size) Worker.
-    /// * size = Min number Worker.
-    pub fn new(size: usize) -> ThreadPool {
-        assert!(size >= 2);
+    /// Make a New Thread Pool, and Make Min (num_thr) Worker.
+    /// * num_thr = Min number Worker.
+    /// * used_static_add = Used add_static_job(true) or add_const_job(false).
+    pub fn new(num_thr: usize) -> ThreadPool {
+        assert!(num_thr > 0);
 
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
-        let workers = (0..size)
+        let workers = (0..num_thr)
             .map(|_id| Worker::new(Arc::clone(&receiver)))
             .collect();
 
         ThreadPool {
             workers,
-            sender,
-            size,
+            sender: Some(sender),
+            receiver: Arc::clone(&receiver),
+            num_thr,
         }
     }
 
     #[inline]
     /// Send new Job. Check Number of Worker per Job.
     /// * When Jobs become More or Qqual to the Number of Worker, Workers are Added until they can handle all of them.
-    /// * When there are Fewer Jobs than the Number of Worker, Worker are Removed, Leaving one Spare. 
-    pub fn execute<F>(&mut self, f: F)
+    /// * When there are Fewer Jobs than the Number of Worker, Worker are Removed, Leaving one Spare.
+    pub fn add_static_job<F>(&mut self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
-        self.sender.send(Box::new(f)).unwrap();
+        unsafe {
+            NUM_JOB_FOR_WORKERS += 1;
+        }
 
-        let num_jfw = unsafe { NUM_JOB_FOR_WORKERS };
-
-        while num_jfw >= self.workers.len() && self.workers.len() > 0 {
+        if unsafe { NUM_JOB_FOR_WORKERS } >= self.workers.len() && self.workers.len() > 0 {
             self.add_worker();
         }
 
-        while num_jfw < self.workers.len() && self.workers.len() > self.size {
-            match self.workers.pop() {
-                Some(_) => {}
-                None => {}
-            };
+        self.add_const_job(f);
+
+        if unsafe { NUM_JOB_FOR_WORKERS } + 1 < self.workers.len()
+            && self.workers.len() > self.num_thr
+        {
+            drop(self.workers.pop());
         }
     }
 
     #[inline]
-    /// Add a New Worker to Vector Workers. 
+    /// Send new Job. No Check Number Job and Worker
+    pub fn add_const_job<F>(&mut self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let job = Box::new(f);
+
+        self.sender.as_ref().unwrap().send(job).unwrap();
+    }
+
+    #[inline]
+    /// Add a New Worker to Vector Workers.
     pub fn add_worker(&mut self) {
-        let receiver = Arc::clone(&self.workers[0].receiver);
-        let new_worker = Worker::new(receiver);
+        let new_worker = Worker::new(Arc::clone(&self.receiver));
         self.workers.push(new_worker);
     }
 }
@@ -85,11 +100,9 @@ impl Drop for ThreadPool {
 }
 
 /// Worker (Thread do Job).
-struct Worker {
+pub struct Worker {
     /// Thread Job.
-    thread: Option<thread::JoinHandle<()>>,
-    /// Thread Send-Read.
-    receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>,
+    pub thread: Option<thread::JoinHandle<()>>,
 }
 
 /// Function Make a new Worker.
@@ -97,20 +110,12 @@ impl Worker {
     #[inline]
     /// Make a new Worker.
     /// * receiver = Thread Send-Read.
-    fn new(receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>) -> Worker {
-        let receiver_clone = Arc::clone(&receiver);
-
+    pub fn new(receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>) -> Worker {
         let thread = thread::spawn(move || loop {
-            let message = match receiver_clone.lock() {
-                Ok(message) => message.recv(),
-                Err(_) => continue,
-            };
+            let message = receiver.lock().unwrap().recv();
 
             match message {
                 Ok(job) => {
-                    unsafe {
-                        NUM_JOB_FOR_WORKERS += 1;
-                    }
                     job();
                     unsafe {
                         if NUM_JOB_FOR_WORKERS > 0 {
@@ -124,7 +129,6 @@ impl Worker {
 
         Worker {
             thread: Some(thread),
-            receiver,
         }
     }
 }
