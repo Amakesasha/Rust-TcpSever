@@ -1,5 +1,5 @@
 use crate::*;
-use std::{fmt::Display, fs::File, io::Read};
+use std::{fmt::Display, collections::HashMap, fs::File, io::Read};
 
 #[derive(Debug, Clone, Default)]
 /// Response Structure
@@ -19,7 +19,7 @@ pub struct Response {
 /// Functions: Make a new structure and Write structure into Line.
 impl Response {
     #[inline]
-    /// Make a New Default Structure.
+    /// Make a New Default Structure
     pub const fn const_new() -> Response {
         Response {
             status_code: String::new(),
@@ -27,8 +27,8 @@ impl Response {
 
             binary_data: Vec::new(),
 
-            cookie: Cookie::new(),
-            setting: SettingResponse::new(),
+            cookie: Cookie::const_new(),
+            setting: SettingResponse::const_new(),
         }
     }
 
@@ -44,6 +44,43 @@ impl Response {
         }
 
         return (Self::format_arg(&http, &self.status_code, self), true);
+    }
+
+    pub fn parse_response(string_data: &String, binary_data: Vec<u8>) -> Option<Response> {
+        let mut split_data = string_data.split("\r\n");
+
+        let mut cookie = Cookie::const_new();
+        let mut setting = SettingResponse::const_new();
+        let mut string_data = String::new();
+
+        let status_code = String::from(split_data.next()?.splitn(2, " ").skip(1).next()?);
+
+        for line in split_data {
+            match true {
+                _ if line.starts_with("Set-Cookie: ") => {
+                    cookie.0.push_str(line);
+                    cookie.0.push_str("\r\n");
+                }
+                _ if line.starts_with("Location: ") => {
+                    string_data.push_str(line.trim_start_matches("Location: "));
+                } 
+                _ if line.find(": ").is_some() => {
+                    setting.0.push_str(line);
+                    setting.0.push_str("\r\n");
+                } 
+                _ => string_data.push_str(line),
+            }
+        }
+
+        Some(Response {
+            status_code,
+            string_data,
+
+            binary_data,
+
+            cookie,
+            setting,
+        })
     }
 
     #[inline]
@@ -68,8 +105,13 @@ impl Response {
     /// Set Response. You can used &str or String.
     /// * status = Status Response.
     /// * data = Write Data.
-    pub fn set_response<Q: Display, W: Display>(&mut self, status: Q, string_data: W) {
-        self.status_code = status.to_string();
+    pub fn set_response<Q, W>(&mut self, status: Q, string_data: W)
+    where
+        String: From<Q>,
+        Q: Display,
+        W: Display,
+    {
+        self.status_code = String::from(status);
         self.string_data = format!("\r\n{}", string_data);
     }
 
@@ -78,7 +120,7 @@ impl Response {
     /// Don't used "Content-Type" with this!
     /// * location = Redirect Url.
     pub fn set_redirect<Q: Display>(&mut self, location: Q) {
-        self.status_code = "302 FOUND".to_string();
+        self.status_code = String::from("302 FOUND");
         self.string_data = format!("Location: {}", location);
     }
 }
@@ -125,7 +167,7 @@ impl Response {
             }
         }
 
-        self.status_code = "404 NOT FOUND".to_string();
+        self.status_code = String::from("404 NOT FOUND");
     }
 }
 
@@ -139,7 +181,7 @@ pub struct Cookie(pub String);
 impl Cookie {
     /// Make a new Cookies Files.
     #[inline]
-    pub const fn new() -> Self {
+    pub const fn const_new() -> Self {
         Cookie { 0: String::new() }
     }
 
@@ -163,6 +205,30 @@ impl Cookie {
             name
         ));
     }
+
+    #[inline]
+    /// Parser Cookie into HashMap. 
+    pub fn parse_to_hashmap(&mut self) -> HashMap<String, String> {
+        let mut hashmap = HashMap::new();
+
+        if self.0.trim().is_empty() {
+            return hashmap;
+        }
+
+        for line in self.0.trim().split("\r\n") {
+            let mut line_split = line.trim_start_matches("Set-Cookie: ").splitn(2, "=");
+
+            let x = line_split.next().unwrap_or("");
+            if !x.is_empty() {
+                hashmap.insert(
+                    String::from(x), 
+                    String::from(line_split.next().unwrap_or(""))
+                );
+            }
+        }
+
+        hashmap
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -173,7 +239,7 @@ pub struct SettingResponse(pub String);
 impl SettingResponse {
     /// Make a new Setting Response.
     #[inline]
-    pub const fn new() -> Self {
+    pub const fn const_new() -> Self {
         SettingResponse { 0: String::new() }
     }
 
@@ -182,6 +248,30 @@ impl SettingResponse {
     /// * name = Name Setting.
     /// * value = Name Setting
     pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
-        self.0.push_str(&format!("{}: {}\r\n", name, value));
+        self.0 += &format!("{}: {}\r\n", name, value);
+    }
+
+    #[inline]
+    /// Parser Setting Response into HashMap. 
+    pub fn parse_to_hashmap(&mut self) -> HashMap<String, String> {
+        let mut hashmap = HashMap::new();
+
+        if self.0.trim().is_empty() {
+            return hashmap;
+        }
+
+        for line in self.0.trim().split("\r\n") {
+            let mut line_split = line.splitn(2, ": ");
+
+            let x = line_split.next().unwrap_or("");
+            if !x.is_empty() {
+                hashmap.insert(
+                    String::from(x), 
+                    String::from(line_split.next().unwrap_or(""))
+                );
+            }
+        }
+
+        hashmap
     }
 }

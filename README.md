@@ -4,12 +4,12 @@ A simple and lightweight crate for launching and using a server.
 
 # Reasons to choose Rust-TcpSever:
 * Not Used Third Party [Libraries](https://github.com/Amakesasha/Rust-TcpSever/blob/main/Cargo.toml)!
-* [Ease of Use](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/default_start.rs)!
+* Ease of Use!
 * Small Library Size!
 * Have [Static Query Processing Thread System](https://github.com/Amakesasha/Rust-TcpSever/blob/main/src/thread_pool.rs)!
 * Have [Open Source](https://github.com/Amakesasha/Rust-TcpSever) and [Simple Documentation](https://docs.rs/rust_tcp_sever/latest/rust_tcp_sever/)!
 * Have a [Secure License](https://github.com/Amakesasha/Rust-TcpSever/?tab=License-1-ov-file)!
-* The Server can [Send any Files](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/default_start.rs), and the Site Will Understand them!
+* Supports all types of files!
 
 ## Find Bug or Malfunction?
 
@@ -29,17 +29,6 @@ This is Modified Thread Pool (From [Rust-Official-Book](https://doc.rust-lang.or
 
 The library will be updated as new proposals and ideas are received. If I no longer want to develop this project, I will write about it. 
 
-# Installing and Running the Library: 
-
-## Installing: 
-``` CMD
-cargo add rust_tcp_sever
-```
-## Running:
-``` CMD
-cargo run 
-``` 
-
 # Usage example: 
  ``` Rust
  // file src/main.rs
@@ -47,52 +36,53 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-    TcpServer::set_def_page(Response::new_from_file("src/lib.rs", "text/html"));
+    TcpServer::set_http("HTTP/2.0");
+    TcpServer::set_add_job(true);
+    TcpServer::set_def_page(Response::new_from_file("src/main.rs", "text/html"));
 
-    let server = TcpServer::new(Server::get_server("127.0.0.1:8077"), ThreadPool::new(4));
+    let server = TcpServer::new(Server::get_server("127.0.0.1:80"), ThreadPool::new(4));
 
-    Server::launch_range_port(server, 8075..8080);
+    Server::launch_range_port(server, 443..444);
 }
 
 struct Server;
 
 impl SeverControl for Server {
-    const TYPE_HTTP: Option<&'static str> = Some("HTTP/2.0");
-
     #[inline]
     fn match_methods(request: &Request, response: &mut Response) {
-        match request.metod_url_http[0].as_str() {
+        // Delet This Code Line)
+        println!("{:#?}", request);
+
+        match request.metod.as_str() {
             "GET" => Self::match_get(request, response),
             "POST" => Self::match_post(request, response),
             "PUT" => Self::match_put(request, response),
             _ => {}
         }
+
+        // Delet This Code Line)
+        println!("{:#?}", response);
     }
 
     #[inline]
-    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener {
-        TcpListener::bind(ip_addr).unwrap()
-    }
+    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener { TcpListener::bind(ip_addr).unwrap() }
 }
 
 impl Server {
     #[inline]
     fn match_get(request: &Request, response: &mut Response) {
-        match request.metod_url_http[1].as_str() {
+        match request.url.as_str() {
             "/response" => {
-                response.set_file("src/main.rs", "text/html"),
-
-                response.setting.add("Data", "Now");
-
-               response.cookie.add("testName", "testValue");
-               response.cookie.delete("asdf");
+                response.set_file("examples_rs/webpage.html", "text/html");
+                response.cookie.add("net", "qwe");
+                response.cookie.delete("qwe");
             }
 
-            // Not Inserted Due to Weight Restrictions :(
-
-            //"/image.png" => response.set_file("examples/image.png", "image/png"),
-            //"/video.mp4" => response.set_file("examples/video.mp4", "video/mp4"),
-            //"/audio.mp3" => response.set_file("examples/audio.mp3", "audio/mp3"),
+            "/giphy.webp" => response.set_file("examples_rs/giphy.webp", "image/webp"),
+            "/image.png" => response.set_file("examples_rs/image.png", "image/png"),
+            "/video.mp4" => response.set_file("examples_rs/video.mp4", "video/mp4"),
+            "/audio.mp3" => response.set_file("examples_rs/audio.mp3", "audio/mp3"),
+            "/favicon.ico" => response.set_file("examples_rs/image.png", "image/png"),
 
             "/wer" => response.set_redirect("/response"),
 
@@ -106,7 +96,6 @@ impl Server {
     #[inline]
     fn match_put(_request: &Request, _response: &mut Response) {}
 }
-
  ```
 
 # Author Support
@@ -117,10 +106,6 @@ Information on SWIFT transfer:
 * Full name: Gakh Alexander Nikolaevich
 * SWIFT-code Bank: TICSRUMM
 * IBAM: RU9104452597440817810500116388926
-
-## Other
-
-I can't use other translations yet :)
 
 # License
 This project is licensed under a [Proprietary License](https://github.com/Amakesasha/Rust-TcpSever/?tab=License-1-ov-file).

@@ -5,10 +5,11 @@ use std::{
 
 /// System Thread Pool.
 pub struct ThreadPool {
-    /// Threads Job.
+    /// Threads Workers.
     pub workers: Vec<Worker>,
-    /// Thread Send-Read.
+    /// Job for Workers.
     pub sender: Option<mpsc::Sender<JobForWorkers>>,
+    /// Thread Send-Read.
     pub receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>,
     /// Min number Workers.
     pub num_thr: usize,
@@ -24,7 +25,6 @@ impl ThreadPool {
     #[inline]
     /// Make a New Thread Pool, and Make Min (num_thr) Worker.
     /// * num_thr = Min number Worker.
-    /// * used_static_add = Used add_static_job(true) or add_const_job(false).
     pub fn new(num_thr: usize) -> ThreadPool {
         assert!(num_thr > 0);
 
@@ -75,7 +75,10 @@ impl ThreadPool {
     {
         let job = Box::new(f);
 
-        self.sender.as_ref().unwrap().send(job).unwrap();
+        match self.sender.as_ref() {
+            Some(data) => data.send(job).unwrap_or(()),
+            None => return,
+        }
     }
 
     #[inline]
@@ -112,15 +115,17 @@ impl Worker {
     /// * receiver = Thread Send-Read.
     pub fn new(receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>) -> Worker {
         let thread = thread::spawn(move || loop {
-            let message = receiver.lock().unwrap().recv();
+            let message = match receiver.lock() {
+                Ok(data) => data.recv(),
+                _ => break,
+            };
 
             match message {
                 Ok(job) => {
                     job();
-                    unsafe {
-                        if NUM_JOB_FOR_WORKERS > 0 {
-                            NUM_JOB_FOR_WORKERS -= 1;
-                        }
+
+                    if unsafe { NUM_JOB_FOR_WORKERS } > 0 {
+                        unsafe { NUM_JOB_FOR_WORKERS -= 1 };
                     }
                 }
                 Err(_) => break,
