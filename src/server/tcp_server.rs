@@ -49,60 +49,54 @@ impl TcpServer {
     #[inline]
     /// Write Data in Stream.
     /// * stream = IpAddr client for Read and Write. Only from the server!
-    /// * string_data = Line Data (For example: HTML, CSS, TextFile).
-    /// * binary_data = Binary Data (For example: Image, Video, GIF).
-    pub fn write_stream(mut stream: &TcpStream, string_data: &String, binary_data: &Vec<u8>) {
-        stream.write_all(string_data.as_bytes()).unwrap_or(());
-        stream.write_all(&binary_data).unwrap_or(());
+    /// * data = Binary Data (Or String Data Into Binary Data).
+    pub fn write_stream(mut stream: &TcpStream, data: &[u8]) {
+        stream.write_all(data).unwrap_or(());
     }
 }
 
 /// Functions for Edit Setting TcpServer
 impl TcpServer {
     #[inline]
-    /// Set Default Page on 404 Error Server.
-    /// At status code = 404 NOT FOUND, this page will load.
-    /// * def_page = Default Load Page.
-    pub fn set_def_page(def_page: Response) {
+    /// Set Code Page Map. Default Value == Empty Vector.
+    /// When Response.status_code == Code from the Map, the Page Associated with it Will be Loaded.
+    /// * map_code_page = Code Page Map.
+    pub fn set_map_code_page(map_code_page: Vec<(String, Response)>) {
+        let mcp = map_code_page
+            .iter()
+            .map(|(code, page)| {
+                (
+                    code.clone(),
+                    [
+                        Response::format_arg("200 OK", page).as_bytes(),
+                        &page.binary_data,
+                    ]
+                    .concat(),
+                )
+            })
+            .collect::<Vec<(String, Vec<u8>)>>();
+
         unsafe {
-            DEF_PAGE = def_page;
+            MAP_CODE_PAGE = mcp;
         }
     }
 
     #[inline]
     /// Set Http Type. Default Value == HTTP/1.1
     /// * When Invalid HTTP, HTTP = 1.0.
-    /// * When const = None, HTTP = HTTP type Request (usually 1.1).
     /// * http = A New Http Type.
     pub fn set_http(http: &'static str) {
         unsafe {
-            TYPE_HTTP_SERVER = Some(http);
-        }
-    }
-
-    #[inline]
-    /// Set Type Add Job on ThreadPool. Default Value == true.
-    /// * If true, add == add_static_job.
-    /// * If false, add == add_const_job.
-    /// * add_job= Type Add Job.
-    pub fn set_add_job(add_job: bool) {
-        unsafe {
-            TYPE_THREAD_POOL = add_job;
+            TYPE_HTTP = http;
         }
     }
 }
 
-/// Default Page Server.
-/// At status code = 404 NOT FOUND, this page will load.
-pub static mut DEF_PAGE: Response = Response::const_new();
+/// Code Page Map
+pub static mut MAP_CODE_PAGE: Vec<(String, Vec<u8>)> = Vec::new();
 
 /// Version HTTP.
-pub static mut TYPE_HTTP_SERVER: Option<&'static str> = None;
-
-/// Type Add Job on ThreadPool.
-pub static mut TYPE_THREAD_POOL: bool = true;
-
-//
+pub static mut TYPE_HTTP: &'static str = "HTTP/1.1";
 
 /// Trait Control Server.
 pub trait SeverControl {
@@ -113,12 +107,12 @@ pub trait SeverControl {
     fn launch_range_port(server: TcpServer, range: Range<usize>) {
         drop(server.listener);
 
-        let mut thread_pool = ThreadPool::new(range.len());
+        let thread_pool = ThreadPool::new(range.len());
         let num_thr = server.thread_pool.num_thr;
         let ip = server.socket_addr.ip();
 
         for port in range {
-            thread_pool.add_const_job(move || {
+            thread_pool.add_job(move || {
                 Self::launch(TcpServer::new(
                     Self::get_server(format!("{ip}:{port}")),
                     ThreadPool::new(num_thr),
@@ -130,16 +124,13 @@ pub trait SeverControl {
     #[inline]
     /// Launches Read-Write Server.
     /// * server = TcpServer.
-    fn launch(mut server: TcpServer) {
+    fn launch(server: TcpServer) {
         PrintInfoServer::server_launch(&server);
 
-        let fn_add = match unsafe { TYPE_THREAD_POOL } {
-            true => ThreadPool::add_static_job,
-            false => ThreadPool::add_const_job,
-        };
-
         for stream in server.listener.incoming().filter_map(Result::ok) {
-            fn_add(&mut server.thread_pool, || Self::handle_connection(stream));
+            server
+                .thread_pool
+                .add_job(|| Self::handle_connection(stream));
         }
 
         PrintInfoServer::server_shotdown(&server);
@@ -152,23 +143,27 @@ pub trait SeverControl {
     /// Launches Parser with Line into Request, and make Response.
     /// You check request and return Request (or Not return).
     /// Response Write into Line, and Write to Client Buffer.
-    /// * _q = No Need.
+    /// * stream = Thread Read-Write between Server and Client.
     fn handle_connection(stream: TcpStream) {
         match TcpServer::read_stream_to_request(&stream) {
             Some(request) => {
-                //println!("{}\n\n\n", Request::format(&request));
-                let mut response = Response::const_new();
+                let mut response = Response::new();
 
                 Self::match_methods(&request, &mut response);
 
-                let fus = response.format(unsafe { TYPE_HTTP_SERVER }.unwrap_or(&request.http));
-
-                let binary_data = match fus.1 {
-                    true => &response.binary_data,
-                    false => unsafe { &DEF_PAGE.binary_data },
-                };
-
-                TcpServer::write_stream(&stream, &fus.0, binary_data);
+                match unsafe { &MAP_CODE_PAGE }
+                    .iter()
+                    .find(|x| x.0 == response.status_code)
+                {
+                    Some((_, data)) => TcpServer::write_stream(&stream, data),
+                    None => {
+                        TcpServer::write_stream(
+                            &stream,
+                            &Response::format_arg(&response.status_code, &response).as_bytes(),
+                        );
+                        TcpServer::write_stream(&stream, &response.binary_data);
+                    }
+                }
             }
             None => return,
         }
@@ -180,6 +175,7 @@ pub trait SeverControl {
     /// * response = Your Response.
     fn match_methods(request: &Request, response: &mut Response);
     /// Function Get Your Custom Server.
+    /// * ip_addr = Ip for Create Server.
     fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener;
 }
 

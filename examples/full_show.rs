@@ -2,31 +2,44 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
+    // Set Type Http, not necessary.
     TcpServer::set_http("HTTP/2.0");
+    // Set Page Code Map, preferably)
     TcpServer::set_map_code_page(vec![(
+        // Status Code.
         String::from("404 NOT FOUND"),
+        // Your Response for this Status Code.
         Response::new_from_file("examples_rs/defpage.html", "text/html"),
     )]);
 
-    let server = TcpServer::new(Server::get_server("127.0.0.1:443"), ThreadPool::new(4));
-
-    Server::launch_range_port(server, 80..81);
+    // Creating a Server.
+    let server = TcpServer::new(Server::get_server("127.0.0.1:80"), ThreadPool::new(4));
+    // Running a server on multiple ports (in this case 443).
+    Server::launch_range_port(server, 443..444);
 }
 
 struct Server;
 
 impl SeverControl for Server {
     #[inline]
+    // Your Parsed Request.
     fn match_methods(request: &Request, response: &mut Response) {
+        // Delet This Code Line)
+        println!("{:#?}", request);
+
         match request.metod.as_str() {
             "GET" => Self::match_get(request, response),
             "POST" => Self::match_post(request, response),
             "PUT" => Self::match_put(request, response),
             _ => {}
         }
+
+        // Delet This Code Line)
+        println!("{:#?}", response);
     }
 
     #[inline]
+    // Create Server, you can leave it like that.
     fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener {
         TcpListener::bind(ip_addr).unwrap()
     }
@@ -36,7 +49,7 @@ impl Server {
     #[inline]
     fn match_get(request: &Request, response: &mut Response) {
         match request.url.as_str() {
-            // Work)
+            // Work) Make Html File, as echo() from PHP.
             "/qwe" => response.html(
                 |resp| {
                     resp.echo(r#"<meta charset="utf-8">"#);
@@ -58,13 +71,9 @@ impl Server {
 
             // Don't Work( Just an example.
             "/giphy.webp" => response.set_file("examples_rs/giphy.webp", "image/webp"),
-            // Don't Work( Just an example.
             "/image.png" => response.set_file("examples_rs/image.png", "image/png"),
-            // Don't Work( Just an example.
             "/video.mp4" => response.set_file("examples_rs/video.mp4", "video/mp4"),
-            // Don't Work( Just an example.
             "/audio.mp3" => response.set_file("examples_rs/audio.mp3", "audio/mp3"),
-            // Don't Work( Just an example.
             "/favicon.ico" => response.set_file("examples_rs/image.png", "image/png"),
 
             // Work)

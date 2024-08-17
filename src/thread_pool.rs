@@ -9,18 +9,14 @@ pub struct ThreadPool {
     pub workers: Vec<Worker>,
     /// Job for Workers.
     pub sender: Option<mpsc::Sender<JobForWorkers>>,
-    /// Thread Send-Read.
-    pub receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>,
     /// Min number Workers.
     pub num_thr: usize,
 }
 
-/// Number Job, which do Workers.
-pub static mut NUM_JOB_FOR_WORKERS: usize = 0;
 /// Job, for Workers.
 pub type JobForWorkers = Box<dyn FnOnce() + Send + 'static>;
 
-/// Functions to Make New Struct, Add Job and Add Worker.
+/// Functions to Make New Struct and Add Worker.
 impl ThreadPool {
     #[inline]
     /// Make a New Thread Pool, and Make Min (num_thr) Worker.
@@ -37,39 +33,13 @@ impl ThreadPool {
         ThreadPool {
             workers,
             sender: Some(sender),
-            receiver: Arc::clone(&receiver),
             num_thr,
         }
     }
 
     #[inline]
-    /// Send new Job. Check Number of Worker per Job.
-    /// * When Jobs become More or Qqual to the Number of Worker, Workers are Added until they can handle all of them.
-    /// * When there are Fewer Jobs than the Number of Worker, Worker are Removed, Leaving one Spare.
-    pub fn add_static_job<F>(&mut self, f: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        unsafe {
-            NUM_JOB_FOR_WORKERS += 1;
-        }
-
-        if unsafe { NUM_JOB_FOR_WORKERS } >= self.workers.len() && self.workers.len() > 0 {
-            self.add_worker();
-        }
-
-        self.add_const_job(f);
-
-        if unsafe { NUM_JOB_FOR_WORKERS } + 1 < self.workers.len()
-            && self.workers.len() > self.num_thr
-        {
-            drop(self.workers.pop());
-        }
-    }
-
-    #[inline]
     /// Send new Job. No Check Number Job and Worker
-    pub fn add_const_job<F>(&mut self, f: F)
+    pub fn add_job<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
@@ -79,13 +49,6 @@ impl ThreadPool {
             Some(data) => data.send(job).unwrap_or(()),
             None => return,
         }
-    }
-
-    #[inline]
-    /// Add a New Worker to Vector Workers.
-    pub fn add_worker(&mut self) {
-        let new_worker = Worker::new(Arc::clone(&self.receiver));
-        self.workers.push(new_worker);
     }
 }
 
@@ -121,13 +84,7 @@ impl Worker {
             };
 
             match message {
-                Ok(job) => {
-                    job();
-
-                    if unsafe { NUM_JOB_FOR_WORKERS } > 0 {
-                        unsafe { NUM_JOB_FOR_WORKERS -= 1 };
-                    }
-                }
+                Ok(job) => job(),
                 Err(_) => break,
             }
         });

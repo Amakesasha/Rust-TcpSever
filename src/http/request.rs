@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 /// Request Structure
 pub struct Request {
     /// Metod Request (For example: GET, POST, PUT).
@@ -15,42 +15,15 @@ pub struct Request {
     /// Add Contents. When your site requests the code, the information goes here.
     pub add_content: HashMap<String, String>,
     /// Add Contents which Don't Parsed to add_content. You're parsing it.
-    /// (For example: JSON, TOML). But if you don't send anything, there will be garbage here.
+    /// (For example: JSON File). But if you don't send anything, there will be garbage here.
     pub rest_content: String,
-}
-
-/// Function for Format Structure into Http.
-impl Request {
-    /// Formated Structure into Http.
-    pub fn format(&self) -> String {
-        let request_line = format!("{} {} {}\r\n", self.metod, self.url, self.http);
-        
-        let mut headers = String::new();
-
-        if !self.cookie.is_empty() {
-            let cookie_header = self.cookie.iter()
-                .map(|(key, value)| format!("{}={}", key, value))
-                .collect::<Vec<_>>()
-                .join("; ");
-            headers.push_str(&format!("Cookie: {}\r\n", cookie_header));
-        }
-
-        for (key, value) in &self.add_content {
-            headers.push_str(&format!("{}: {}\r\n", key, value));
-        }
-
-        format!("{}{}{}", request_line, headers, self.rest_content)
-    }
 }
 
 /// Functions for Parsed Http into Structure.
 impl Request {
     #[inline]
-    /// Main Function Parsed. Used null, uncertain and last Line Request.
-    /// * data = Http Request. \n
-    /// * Null = Metod, Url, Http.
-    /// * Uncertain = Parsed, If code find Cookies Line, else Empty.
-    /// * Last = Parsed, If Line Not have Cookies, else Empty.
+    /// Main Function Parsed.
+    /// * data = Http Request.
     pub fn parse_to_self(data: &str) -> Option<Request> {
         let mut cookie = HashMap::new();
         let mut add_content = HashMap::new();

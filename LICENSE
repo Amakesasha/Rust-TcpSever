@@ -8,9 +8,6 @@ By downloading this library, you automatically agree to the license and agree th
 * Grant of license
 You are granted the right to use this Library for personal or educational purposes. Modifications, alterations or derivative works are permitted for personal use only. You may not transfer any copies of this Library.
 
-* Change request
-If you would like to suggest changes or improvements to the Library, please contact the author to discuss. You can submit your suggestions using the following link: (0) or Email: (1).
-
 * No warranty
 The Library is provided "as is", without warranty of any kind, either express or implied, including, but not limited to, warranties of merchantability, fitness for a particular purpose or non-infringement. Under no circumstances will the author be liable for any damages resulting from the use of this Library.
 
@@ -18,12 +15,10 @@ The Library is provided "as is", without warranty of any kind, either express or
 Copyright of this Library remains with the author. All rights reserved.
 
 * Distribution
-Redistribution of this Library is strictly prohibited. You can only download the Library from the official GitHub repository (2) or the crates.io website (3). All users are prohibited from transferring or distributing any copies, modifications or adaptations of the Library in any form.
+Redistribution of this Library is strictly prohibited. You can only download the Library from the official GitHub repository (0) or the crates.io website (1). All users are prohibited from transferring or distributing any copies, modifications or adaptations of the Library in any form.
 
 This policy is implemented for security reasons, as unauthorized distribution could lead to malicious code being injected by attackers.
 
 * Links:
-0 = https://github.com/Amakesasha/Rust-TcpSever/issues
-1 = amakesasha@gmail.com
-2 = https://github.com/Amakesasha/Rust-TcpSever
-3 = https://crates.io/crates/rust_tcp_sever
+0 = https://github.com/Amakesasha/Rust-TcpSever
+1 = https://crates.io/crates/rust_tcp_sever
