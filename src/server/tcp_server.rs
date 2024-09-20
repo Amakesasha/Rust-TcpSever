@@ -1,41 +1,30 @@
 use crate::*;
-use std::{
-    io::{BufReader, Read, Write},
-    net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
-    ops::Range,
-};
+
+lazy_static! {
+    /// Code Map Page.
+    static ref MAP_CODE_PAGE: Arc<RwLock<HashMap<String, Vec<u8>>>> =
+        Arc::new(RwLock::new(HashMap::new()));
+}
+
+/// Tcp Server.
+pub static mut TCP_LISTENER: Option<TcpListener> = None;
+/// Version HTTP.
+pub static mut TYPE_HTTP: &'static str = "HTTP/1.1";
+
+/// Function for Read Request and Parse from TcpStream.
+pub type FnRead = for<'staitc> fn(&'staitc TcpStream) -> Option<Request>;
+/// Function for Write Response into TcpStream.
+pub type FnWrite = for<'a> fn(&'a TcpStream, &'a [u8]);
 
 /// Tcp Server Structure.
-pub struct TcpServer {
-    /// TcpListener.
-    pub listener: TcpListener,
-    /// Thread Pool for no queue.
-    pub thread_pool: ThreadPool,
-    /// IpAddr, Ip and Port.
-    pub socket_addr: SocketAddr,
-}
-
-/// Functions for Build TcpServer.
-impl TcpServer {
-    #[inline]
-    /// Make a New TcpServer.
-    /// * listener = TcpListener, the basis of the entire server.
-    /// * thread_pool = Thread Pool for no queue.
-    pub fn new(listener: TcpListener, thread_pool: ThreadPool) -> Self {
-        Self {
-            socket_addr: listener.local_addr().unwrap(),
-            thread_pool,
-            listener,
-        }
-    }
-}
+pub struct TcpServer;
 
 /// Functions for Work TcpServer.
 impl TcpServer {
     #[inline]
-    /// Read Data Send to Stream. Parse this data into Request. End Return the Request.
-    /// * stream = IpAddr client for Read and Write. Only from the server!
-    pub fn read_stream_to_request(mut stream: &TcpStream) -> Option<Request> {
+    /// Read Data Send to Stream. Parse this Data Into Request. End Return the Request.
+    /// * stream = IpAddr, Client for Read and Write. Only from the server!
+    pub fn read_stream(mut stream: &TcpStream) -> Option<Request> {
         let mut buffer = [32; 1024];
 
         let str_request = match BufReader::new(&mut stream).read(&mut buffer).ok()? {
@@ -51,7 +40,7 @@ impl TcpServer {
     /// * stream = IpAddr client for Read and Write. Only from the server!
     /// * data = Binary Data (Or String Data Into Binary Data).
     pub fn write_stream(mut stream: &TcpStream, data: &[u8]) {
-        stream.write_all(data).unwrap_or(());
+        BufWriter::new(&mut stream).write(data).unwrap_or(0);
     }
 }
 
@@ -62,7 +51,7 @@ impl TcpServer {
     /// When Response.status_code == Code from the Map, the Page Associated with it Will be Loaded.
     /// * map_code_page = Code Page Map.
     pub fn set_map_code_page(map_code_page: Vec<(String, Response)>) {
-        let mcp = map_code_page
+        *MAP_CODE_PAGE.write().unwrap() = map_code_page
             .iter()
             .map(|(code, page)| {
                 (
@@ -74,11 +63,7 @@ impl TcpServer {
                     .concat(),
                 )
             })
-            .collect::<Vec<(String, Vec<u8>)>>();
-
-        unsafe {
-            MAP_CODE_PAGE = mcp;
-        }
+            .collect::<HashMap<String, Vec<u8>>>();
     }
 
     #[inline]
@@ -90,93 +75,89 @@ impl TcpServer {
             TYPE_HTTP = http;
         }
     }
+
+    #[inline]
+    /// Set Tcp Server. Default Value == None
+    /// * When Value == None, Will Load Error.
+    /// * server = Tcp Server.
+    pub fn set_server(server: TcpListener) {
+        unsafe {
+            TCP_LISTENER = Some(server);
+        }
+    }
+
+    #[inline]
+    /// Set Tcp Server. Default Value == None
+    /// * When Value == None, Will Load Error.
+    /// * server = Tcp Server.
+    pub fn get_server<'a>() -> &'static TcpListener {
+        unsafe { TCP_LISTENER.as_ref().unwrap() }
+    }
 }
-
-/// Code Page Map
-pub static mut MAP_CODE_PAGE: Vec<(String, Vec<u8>)> = Vec::new();
-
-/// Version HTTP.
-pub static mut TYPE_HTTP: &'static str = "HTTP/1.1";
 
 /// Trait Control Server.
 pub trait SeverControl {
-    #[inline]
-    /// Launches Some Servers, Number Servers = Range. The Port from Creation Does Not Count!
-    /// * server = TcpServer.
-    /// * range = Number Servers.
-    fn launch_range_port(server: TcpServer, range: Range<usize>) {
-        drop(server.listener);
-
-        let thread_pool = ThreadPool::new(range.len());
-        let num_thr = server.thread_pool.num_thr;
-        let ip = server.socket_addr.ip();
-
-        for port in range {
-            thread_pool.add_job(move || {
-                Self::launch(TcpServer::new(
-                    Self::get_server(format!("{ip}:{port}")),
-                    ThreadPool::new(num_thr),
-                ));
-            });
-        }
-    }
+    const FN_READ: FnRead;
+    const FN_WRITE: FnWrite;
 
     #[inline]
     /// Launches Read-Write Server.
-    /// * server = TcpServer.
-    fn launch(server: TcpServer) {
-        PrintInfoServer::server_launch(&server);
+    /// * num_thr = Number Workers in ThreadPool.
+    fn launch(num_thr: usize) {
+        PrintInfoServer::server_launch();
 
-        for stream in server.listener.incoming().filter_map(Result::ok) {
-            server
-                .thread_pool
-                .add_job(|| Self::handle_connection(stream));
+        let thread_pool = ThreadPool::new(num_thr);
+
+        for stream in TcpServer::get_server().incoming().filter_map(Result::ok) {
+            thread_pool.add_job(|| Self::handle_connection(stream).unwrap_or(()));
         }
 
-        PrintInfoServer::server_shotdown(&server);
+        PrintInfoServer::server_shotdown();
     }
 
     #[inline]
-    /// Handle Connection type One Write, One Read, break Connection.
     /// Read HTTP Request, make Response, and Write this Response.
     /// At start, Requst Read and Write to byte Buffer, then byte Buffer transfer to Line.
     /// Launches Parser with Line into Request, and make Response.
     /// You check request and return Request (or Not return).
     /// Response Write into Line, and Write to Client Buffer.
     /// * stream = Thread Read-Write between Server and Client.
-    fn handle_connection(stream: TcpStream) {
-        match TcpServer::read_stream_to_request(&stream) {
-            Some(request) => {
-                let mut response = Response::new();
-
-                Self::match_methods(&request, &mut response);
-
-                match unsafe { &MAP_CODE_PAGE }
-                    .iter()
-                    .find(|x| x.0 == response.status_code)
-                {
-                    Some((_, data)) => TcpServer::write_stream(&stream, data),
-                    None => {
-                        TcpServer::write_stream(
-                            &stream,
-                            &Response::format_arg(&response.status_code, &response).as_bytes(),
-                        );
-                        TcpServer::write_stream(&stream, &response.binary_data);
-                    }
-                }
-            }
-            None => return,
+    fn handle_connection(stream: TcpStream) -> Option<()> {
+        if !Self::check_stream(&stream) {
+            return None;
         }
+
+        let request = Self::FN_READ(&stream)?;
+        let mut response = Response::new();
+
+        Self::parser_request(&stream, &request, &mut response);
+
+        match MAP_CODE_PAGE.read().ok()?.get(&response.status_code) {
+            Some(data) => Self::FN_WRITE(&stream, &data),
+            None => {
+                let form_arg = Response::format_arg(&response.status_code, &response);
+
+                let mut data = Vec::with_capacity(form_arg.len() + response.binary_data.len());
+                data.extend_from_slice(form_arg.as_bytes());
+                data.extend_from_slice(&response.binary_data);
+
+                Self::FN_WRITE(&stream, &data);
+            }
+        }
+
+        Some(())
     }
 
-    /// Your Check Methods Request. Usually Used GET and POST, sometimes used metod PUT.
+    /// Your Check Ip. Starting in Start.
+    /// * stream = Thread Read-Write between Server and Client.
+    fn check_stream(stream: &TcpStream) -> bool;
+
+    /// Your Parser Request. Usually Used GET and POST, sometimes used metod PUT.
     /// The rest are not usually used, but they can be used.
+    /// * stream = Thread Read-Write between Server and Client.
     /// * request = Parsed Http Request.
     /// * response = Your Response.
-    fn match_methods(request: &Request, response: &mut Response);
-    /// Function Get Your Custom Server.
-    /// * ip_addr = Ip for Create Server.
-    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener;
+    fn parser_request(stream: &TcpStream, request: &Request, response: &mut Response);
 }
 
 /// Struct For Print Information about Working Server.
@@ -185,19 +166,15 @@ pub struct PrintInfoServer;
 impl PrintInfoServer {
     #[inline]
     /// Print about Launch Server.
-    pub fn server_launch(server: &TcpServer) {
-        println!(
-            "SERVER | LAUNCH | {} | {} ",
-            server.thread_pool.num_thr, server.socket_addr
-        );
+    /// * server = TcpServer.
+    pub fn server_launch() {
+        println!("SERVER | {} | LAUNCH ", TcpServer::get_server().local_addr().unwrap());
     }
 
     #[inline]
-    /// Print about Shot Down Server.
-    pub fn server_shotdown(server: &TcpServer) {
-        println!(
-            "SERVER | SHOT DOWN | {} | {}",
-            server.thread_pool.num_thr, server.socket_addr
-        );
+    /// Print about ShotDown Server.
+    /// * server = TcpServer.
+    pub fn server_shotdown() {
+        println!("SERVER | {} | SHOT DOWN ", TcpServer::get_server().local_addr().unwrap());
     }
 }

@@ -1,7 +1,4 @@
-use std::{
-    sync::{mpsc, Arc, Mutex},
-    thread,
-};
+use crate::*;
 
 /// System Thread Pool.
 pub struct ThreadPool {
@@ -38,7 +35,7 @@ impl ThreadPool {
     }
 
     #[inline]
-    /// Send new Job. No Check Number Job and Worker
+    /// Send new Job. 
     pub fn add_job<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,

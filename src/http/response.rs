@@ -1,5 +1,4 @@
 use crate::*;
-use std::{convert::AsRef, fmt::Display, fs::File, io::Read, path::Path};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 /// Response Structure
@@ -14,18 +13,34 @@ pub struct Response {
     pub setting: SettingResponse,
 }
 
-/// Functions: Make a new structure and Write structure into Line.
+lazy_static! {
+    static ref HTTP_404: String = String::from("404 NOT FOUND");
+    static ref HTTP_302: String = String::from("302 FOUND");
+    static ref HTTP_NEXT_LINE: Vec<u8> = b"\r\n".to_vec();
+    static ref HTTP_LOCATION: Vec<u8> = b"Location: ".to_vec();
+}
+
+/// Functions: Make a new Response, Make from Function and Write Response into Line.
 impl Response {
     #[inline]
-    /// Make a New Default Structure
+    /// Make a New Default Structure.
     pub fn new() -> Response {
         Response {
-            status_code: String::from("404 NOT FOUND"),
+            status_code: HTTP_404.clone(),
             binary_data: Vec::new(),
 
             cookie: Cookie::const_new(),
             setting: SettingResponse::const_new(),
         }
+    }
+
+    #[inline]
+    /// Make a New Structure from Function.
+    /// * fn_edit = Function for Edit Structure.
+    pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
+        let mut response = Response::new();
+        fn_edit(&mut response);
+        return response;
     }
 
     #[inline]
@@ -51,18 +66,18 @@ impl Response {
     /// * body = Function on Creating the Html part of the Body.
     pub fn html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(&mut self, head: Q, body: W) {
         self.set_response("200 OK", "");
-        self.binary_data.extend(b"<html><head>");
+        self.binary_data.extend_from_slice(b"<html><head>");
         head(self);
-        self.binary_data.extend(b"</head><body>");
+        self.binary_data.extend_from_slice(b"</head><body>");
         body(self);
-        self.binary_data.extend(b"</body></html>");
+        self.binary_data.extend_from_slice(b"</body></html>");
     }
 
     #[inline]
     /// Adding a String to Html. Don't Use this Outside of Response::html().
     /// * data = Data for Add.
     pub fn echo<Q: AsRef<[u8]>>(&mut self, data: Q) {
-        self.binary_data.extend(data.as_ref());
+        self.binary_data.extend_from_slice(data.as_ref());
     }
 }
 
@@ -78,8 +93,11 @@ impl Response {
     {
         self.status_code = String::from(status);
 
-        self.binary_data = b"\r\n".to_vec();
-        self.binary_data.extend(string_data.as_ref());
+        let data = string_data.as_ref();
+
+        self.binary_data.reserve(data.len() + 10);
+        self.binary_data = HTTP_NEXT_LINE.clone();
+        self.binary_data.extend_from_slice(data);
     }
 
     #[inline]
@@ -87,10 +105,13 @@ impl Response {
     /// Don't used "Content-Type" with this!
     /// * location = Redirect Url.
     pub fn set_redirect<Q: AsRef<[u8]>>(&mut self, location: Q) {
-        self.status_code = String::from("302 FOUND");
+        self.status_code = HTTP_302.clone();
 
-        self.binary_data = b"Location: ".to_vec();
-        self.binary_data.extend(location.as_ref());
+        let location = location.as_ref();
+
+        self.binary_data.reserve(location.len() + 10);
+        self.binary_data = HTTP_LOCATION.clone();
+        self.binary_data.extend_from_slice(location);
     }
 }
 
@@ -127,7 +148,7 @@ impl Response {
             }
         }
 
-        self.status_code = String::from("404 NOT FOUND");
+        self.status_code = HTTP_404.clone();
     }
 }
 

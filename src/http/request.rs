@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 /// Request Structure
 pub struct Request {
     /// Metod Request (For example: GET, POST, PUT).
-    pub metod: String,
+    pub method: String,
     /// Url Request (For example: /sign, /find/qwe).
     pub url: String,
     /// Type Http (HTTP/1.0, HTTP/1.1, HTTP/2.0).
@@ -16,7 +16,7 @@ pub struct Request {
     pub add_content: HashMap<String, String>,
     /// Add Contents which Don't Parsed to add_content. You're parsing it.
     /// (For example: JSON File). But if you don't send anything, there will be garbage here.
-    pub rest_content: String,
+    pub last_line: String,
 }
 
 /// Functions for Parsed Http into Structure.
@@ -28,18 +28,9 @@ impl Request {
         let mut cookie = HashMap::new();
         let mut add_content = HashMap::new();
 
-        let split_line: Vec<&str> = data.lines().collect();
+        let mut split_line = data.lines();
 
-        if let Some(cookie_line) = split_line.iter().find(|line| line.starts_with("Cookie: ")) {
-            cookie = Self::get_data(cookie_line.trim_start_matches("Cookie: "), "; ");
-        }
-
-        let last_line = split_line.last()?;
-        if let None = last_line.find(": ") {
-            add_content = Self::get_data(last_line, "&");
-        }
-
-        let muh: Vec<&str> = split_line.get(0)?.split_whitespace().collect();
+        let muh: Vec<&str> = split_line.next()?.split_whitespace().collect();
         let mut url_line = *muh.get(1)?;
 
         if let Some(index) = url_line.find("?") {
@@ -47,14 +38,25 @@ impl Request {
             url_line = &url_line[..index];
         }
 
+        let last_line = split_line.next_back().unwrap();
+        if !last_line.contains(": ") {
+            add_content = Self::get_data(last_line, "&");
+        }
+
+        if let Some(cookie_line) = split_line.find(|line| line.starts_with("Cookie: ")) {
+            cookie = Self::get_data(cookie_line.trim_start_matches("Cookie: "), "; ");
+        } else if last_line.contains("Cookie: ") {
+            cookie = Self::get_data(last_line.trim_start_matches("Cookie: "), "; ");
+        }
+
         Some(Request {
-            metod: String::from(*muh.get(0)?),
+            method: String::from(*muh.get(0)?),
             url: String::from(url_line),
             http: String::from(*muh.get(2)?),
 
             cookie,
             add_content,
-            rest_content: String::from(*last_line),
+            last_line: String::from(last_line),
         })
     }
 

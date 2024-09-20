@@ -2,30 +2,39 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-    // Set Type Http, not necessary.
-    TcpServer::set_http("HTTP/2.0");
-    // Set Page Code Map, preferably)
-    TcpServer::set_map_code_page(vec![(
-        String::from("404 NOT FOUND"),
-        Response::new_from_file("examples_rs/defpage.html", "text/html"),
-    )]);
+    // Set Type HTTP (For example: HTTP/1.1, HTTP/2.0).
+    TcpServer::set_http("HTTP/2.0"); // No Need.
 
-    // Creating a Server.
-    let server = TcpServer::new(Server::get_server("127.0.0.1:80"), ThreadPool::new(4));
-    // Running a server on multiple ports (in this case 443).
-    Server::launch_range_port(server, 443..444);
+    // Set Tcp Server.
+    TcpServer::set_server(TcpListener::bind("127.0.0.1:443").unwrap()); // Need to.
+
+    // Set CodeMapPage (When response.status_code == {CODE}, Will Load {DATA} Attached to {CODE}).
+    TcpServer::set_map_code_page(vec![
+        (
+            // {CODE}
+            String::from("404 NOT FOUND"),
+            // {DATA}
+            Response::new_from_file("examples_rs/defpage.html", "text/html"),
+        )
+    ]); // No Need
+
+    // Launch Server in 4 Thread Mode.
+    Server::launch(4); // Need to.
 }
 
 struct Server;
 
 impl SeverControl for Server {
-    #[inline]
-    // Your Parsed Request.
-    fn match_methods(request: &Request, response: &mut Response) {}
+    // Function for Read and Parse Request.
+    const FN_READ: FnRead = TcpServer::read_stream;
+    // Function for Write Response.
+    const FN_WRITE: FnWrite = TcpServer::write_stream;
 
     #[inline]
-    // Create Server, you can leave it like that.
-    fn get_server<T: ToSocketAddrs>(ip_addr: T) -> TcpListener {
-        TcpListener::bind(ip_addr).unwrap()
-    }
+    // Check Client.
+    fn check_stream(_stream: &TcpStream) -> bool { true }
+
+    #[inline]
+    // Your Parse Request and Make Response.
+    fn parser_request(_stream: &TcpStream, request: &Request, response: &mut Response) { }
 }
