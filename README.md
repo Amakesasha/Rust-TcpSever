@@ -2,29 +2,15 @@
 
 A simple and lightweight crate for launching and using a server. 
 
-# Reasons to choose Rust-TcpSever:
-* Have [Request Processing Thread System](https://github.com/Amakesasha/Rust-TcpSever/blob/main/src/thread_pool.rs) (Thread Pool, [Rust-Official-Book](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html))!
-* Have [Open Source](https://github.com/Amakesasha/Rust-TcpSever) and [Simple Documentation](https://docs.rs/rust_tcp_sever/latest/rust_tcp_sever/)!
-* Have a [Secure License](https://github.com/Amakesasha/Rust-TcpSever/?tab=License-1-ov-file)!
-* Have a [Discord Server](https://discord.com/invite/dYz6sYmmuu) with Direct Connection to Me!
-* Have a [YouTube Channel](https://www.youtube.com/@rust-tcpsever)!
----
-* [Ease of Use](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/default_start.rs)!
-* Small Library Size!
-* Supports all Types of Files!
+# Future of the Library
 
-# Used Library:
-* [lazy_static](https://crates.io/crates/lazy_static)
+The library will be updated as new proposals and ideas are received. If I no longer want to develop this project, I will write about it. I will try to post a new update every month.
 
-# Contact with the developer.
-* [YouTube Channel](https://www.youtube.com/@rust-tcpsever)
-* [Discord Server](https://discord.com/invite/dYz6sYmmuu)
-* [Issues GitHub](https://github.com/Amakesasha/Rust-TcpSever/issues) 
-* amakesasha@gmail.com
-
-# Future of the library
-
-The library will be updated as new proposals and ideas are received. If I no longer want to develop this project, I will write about it. I will try to post a new update every month
+# Supported Protocols
+| Protocol | Description |
+|----------|-------------|
+ [**CLEAN**](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/clean.rs) | Without any specific protocol |
+ [**HTTP**](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/http) | Standard Hypertext Transfer Protocol |
 
 # Usage example: 
 * See [rest Example](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples) or [Write to Server](https://discord.com/invite/dYz6sYmmuu).
@@ -56,13 +42,13 @@ impl SeverControl for Server {
 }
  ```
 
-# License
-This project is licensed under a [Proprietary License](https://github.com/Amakesasha/Rust-TcpSever/?tab=License-1-ov-file).
+# Contact Information
+* [Discord Server](https://discord.com/invite/dYz6sYmmuu)
+* [Issues GitHub](https://github.com/Amakesasha/Rust-TcpSever/issues) 
+* amakesasha@gmail.com
 
-## Summary:
-* By downloading the library, you automatically agree to the license.
-* You can only change your copy of the project downloaded from [GitHub](https://github.com/Amakesasha/Rust-TcpSever).
-* You can only download the library from [GitHub](https://github.com/Amakesasha/Rust-TcpSever) or [crates.io](https://crates.io/crates/rust_tcp_sever).
-* It is prohibited to forward even an unmodified copy to other people.
-* Copyright of this software remains with the author. All rights reserved.
-* The author does not bear any responsibility for damage caused.
+# Used Library:
+* [lazy_static](https://crates.io/crates/lazy_static)
+
+# License
+This project is licensed under the [MIT license](https://opensource.org/license/MIT).

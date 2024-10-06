@@ -2,27 +2,29 @@ extern crate rust_tcp_sever;
 pub use rust_tcp_sever::*;
 
 fn main() {
-    // Set Tcp Server.
-    TcpServer::set_server(TcpListener::bind("127.0.0.1:443").unwrap());
-    // Launch Server in 4 Thread Mode.
-    Server::launch(4);
+    HttpServer::set_http("HTTP/2.0");
+    HttpServer::set_server(TcpListener::bind("127.0.0.1:443").unwrap());
+
+    HttpServer::set_map_code_page(vec![
+        (String::from("404 NOT FOUND"), Response::new_from_file("examples_rs/defpage.html", "text/html"))
+    ]);
+
+    Server::launch(1);
 }
 
 struct Server;
 
-impl SeverControl for Server {
-    // Function for Read and Parse Request.
-    const FN_READ: FnRead = TcpServer::read_stream;
-    // Function for Write Response.
-    const FN_WRITE: FnWrite = TcpServer::write_stream;
+impl HttpSever for Server {
+    const FN_READ: HttpRead = HttpServer::read;
+    const FN_WRITE: HttpWrite = HttpServer::write;
 
     #[inline]
-    // Check Client.
-    fn check_stream(_stream: &TcpStream) -> bool { true }
+    fn check_stream(_stream: &TcpStream) -> bool {
+        true
+    }
 
     #[inline]
-    // Your Parse Request and Make Response.
-    fn parser_request(_stream: &TcpStream, request: &Request, response: &mut Response) { 
+    fn parser_request(_stream: &TcpStream, request: &Request, response: &mut Response) {
         match request.url.as_str() {
             "/response" => {
                 response.set_file("examples_rs/webpage.html", "text/html");

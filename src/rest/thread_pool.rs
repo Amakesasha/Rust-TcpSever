@@ -35,7 +35,7 @@ impl ThreadPool {
     }
 
     #[inline]
-    /// Send new Job. 
+    /// Send new Job.
     pub fn add_job<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,

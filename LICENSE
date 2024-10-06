@@ -1,24 +1,21 @@
-License Library (Rust TcpSever)
+MIT License
 
-Copyright (c) 2024 AmakeSasha (amakesasha)
+Copyright (c) [2024] [AmakeSasha]
 
-* Agreement
-By downloading this library, you automatically agree to the license and agree that you will comply with all clauses in the license.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-* Grant of license
-You are granted the right to use this Library for personal or educational purposes. Modifications, alterations or derivative works are permitted for personal use only. You may not transfer any copies of this Library.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-* No warranty
-The Library is provided "as is", without warranty of any kind, either express or implied, including, but not limited to, warranties of merchantability, fitness for a particular purpose or non-infringement. Under no circumstances will the author be liable for any damages resulting from the use of this Library.
-
-* Copyright Notice
-Copyright of this Library remains with the author. All rights reserved.
-
-* Distribution
-Redistribution of this Library is strictly prohibited. You can only download the Library from the official GitHub repository (0) or the crates.io website (1). All users are prohibited from transferring or distributing any copies, modifications or adaptations of the Library in any form.
-
-This policy is implemented for security reasons, as unauthorized distribution could lead to malicious code being injected by attackers.
-
-* Links:
-0 = https://github.com/Amakesasha/Rust-TcpSever
-1 = https://crates.io/crates/rust_tcp_sever
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

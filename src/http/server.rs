@@ -6,25 +6,25 @@ lazy_static! {
         Arc::new(RwLock::new(HashMap::new()));
 }
 
-/// Tcp Server.
-pub static mut TCP_LISTENER: Option<TcpListener> = None;
+/// Http Server.
+static mut HTTP_LISTENER: Option<TcpListener> = None;
 /// Version HTTP.
 pub static mut TYPE_HTTP: &'static str = "HTTP/1.1";
 
-/// Function for Read Request and Parse from TcpStream.
-pub type FnRead = for<'staitc> fn(&'staitc TcpStream) -> Option<Request>;
-/// Function for Write Response into TcpStream.
-pub type FnWrite = for<'a> fn(&'a TcpStream, &'a [u8]);
+/// Function for Read Request and Parse from HttpStream.
+pub type HttpRead = for<'staitc> fn(&'staitc TcpStream) -> Option<Request>;
+/// Function for Write Response into HttpStream.
+pub type HttpWrite = for<'a> fn(&'a TcpStream, &'a [u8]);
 
-/// Tcp Server Structure.
-pub struct TcpServer;
+/// Http Server Structure.
+pub struct HttpServer;
 
-/// Functions for Work TcpServer.
-impl TcpServer {
+/// Functions for Work HttpServer.
+impl HttpServer {
     #[inline]
     /// Read Data Send to Stream. Parse this Data Into Request. End Return the Request.
-    /// * stream = IpAddr, Client for Read and Write. Only from the server!
-    pub fn read_stream(mut stream: &TcpStream) -> Option<Request> {
+    /// * stream = IpAddr, Client for Read and Write. Only from the Server!
+    pub fn read(mut stream: &TcpStream) -> Option<Request> {
         let mut buffer = [32; 1024];
 
         let str_request = match BufReader::new(&mut stream).read(&mut buffer).ok()? {
@@ -37,15 +37,15 @@ impl TcpServer {
 
     #[inline]
     /// Write Data in Stream.
-    /// * stream = IpAddr client for Read and Write. Only from the server!
+    /// * stream = IpAddr client for Read and Write. Only from the Server!
     /// * data = Binary Data (Or String Data Into Binary Data).
-    pub fn write_stream(mut stream: &TcpStream, data: &[u8]) {
+    pub fn write(mut stream: &TcpStream, data: &[u8]) {
         BufWriter::new(&mut stream).write(data).unwrap_or(0);
     }
 }
 
-/// Functions for Edit Setting TcpServer
-impl TcpServer {
+/// Functions for Edit Setting HttpServer
+impl HttpServer {
     #[inline]
     /// Set Code Page Map. Default Value == Empty Vector.
     /// When Response.status_code == Code from the Map, the Page Associated with it Will be Loaded.
@@ -77,42 +77,42 @@ impl TcpServer {
     }
 
     #[inline]
-    /// Set Tcp Server. Default Value == None
+    /// Set Http Server. Default Value == None
     /// * When Value == None, Will Load Error.
-    /// * server = Tcp Server.
+    /// * server = Http Server.
     pub fn set_server(server: TcpListener) {
         unsafe {
-            TCP_LISTENER = Some(server);
+            HTTP_LISTENER = Some(server);
         }
     }
 
     #[inline]
-    /// Set Tcp Server. Default Value == None
+    /// Set Http Server. Default Value == None
     /// * When Value == None, Will Load Error.
-    /// * server = Tcp Server.
+    /// * server = Http Server.
     pub fn get_server<'a>() -> &'static TcpListener {
-        unsafe { TCP_LISTENER.as_ref().unwrap() }
+        unsafe { HTTP_LISTENER.as_ref().unwrap() }
     }
 }
 
 /// Trait Control Server.
-pub trait SeverControl {
-    const FN_READ: FnRead;
-    const FN_WRITE: FnWrite;
+pub trait HttpSever {
+    const FN_READ: HttpRead;
+    const FN_WRITE: HttpWrite;
 
     #[inline]
     /// Launches Read-Write Server.
     /// * num_thr = Number Workers in ThreadPool.
     fn launch(num_thr: usize) {
-        PrintInfoServer::server_launch();
+        HttpServerInfo::launch();
 
         let thread_pool = ThreadPool::new(num_thr);
 
-        for stream in TcpServer::get_server().incoming().filter_map(Result::ok) {
+        for stream in HttpServer::get_server().incoming().filter_map(Result::ok) {
             thread_pool.add_job(|| Self::handle_connection(stream).unwrap_or(()));
         }
 
-        PrintInfoServer::server_shotdown();
+        HttpServerInfo::shotdown();
     }
 
     #[inline]
@@ -128,7 +128,7 @@ pub trait SeverControl {
         }
 
         let request = Self::FN_READ(&stream)?;
-        let mut response = Response::new();
+        let mut response = RESPONSE_DEF.clone();
 
         Self::parser_request(&stream, &request, &mut response);
 
@@ -161,20 +161,18 @@ pub trait SeverControl {
 }
 
 /// Struct For Print Information about Working Server.
-pub struct PrintInfoServer;
+pub struct HttpServerInfo;
 
-impl PrintInfoServer {
+impl HttpServerInfo {
     #[inline]
     /// Print about Launch Server.
-    /// * server = TcpServer.
-    pub fn server_launch() {
-        println!("SERVER | {} | LAUNCH ", TcpServer::get_server().local_addr().unwrap());
+    pub fn launch() {
+        println!("SERVER | HTTP | {} | LAUNCH ", HttpServer::get_server().local_addr().unwrap());
     }
 
     #[inline]
     /// Print about ShotDown Server.
-    /// * server = TcpServer.
-    pub fn server_shotdown() {
-        println!("SERVER | {} | SHOT DOWN ", TcpServer::get_server().local_addr().unwrap());
+    pub fn shotdown() {
+        println!("SERVER | HTTP | {} | SHOT DOWN ", HttpServer::get_server().local_addr().unwrap());
     }
 }

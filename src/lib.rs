@@ -1,20 +1,26 @@
+#![crate_name = "rust_tcp_sever"]
+#![crate_type = "lib"]
+
 extern crate lazy_static;
 
-/// Metods for Work with HTTP
+/// Clean Server.
+pub mod clean {
+    /// Server.
+    pub mod server;
+}
+
+/// HTTP Server.
 pub mod http {
     /// Request.
     pub mod request;
     /// Response.
     pub mod response;
+    /// Server.
+    pub mod server;
 }
 
-/// Files Server
-pub mod server {
-    /// Tcp Server.
-    pub mod tcp_server;
-}
-/// Other Files for Work Server.
-pub mod other {
+/// Rest Files for Work Server.
+pub mod rest {
     /// Modified Thread Pool (From [Rust-Official-Book](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html))
     /// Static Query Processing Thread System.
     pub mod thread_pool;
@@ -33,8 +39,8 @@ pub(crate) use std::{
 };
 
 pub use crate::{
-    http::{request::*, response::*},
-    other::thread_pool::*,
-    server::tcp_server::*,
+    http::{request::*, response::*, server::*},
+    rest::{thread_pool::*},
+    clean::{server::*}
 };
 pub use std::net::{TcpListener, TcpStream};

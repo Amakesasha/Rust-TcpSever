@@ -16,29 +16,24 @@ pub struct Response {
 lazy_static! {
     static ref HTTP_404: String = String::from("404 NOT FOUND");
     static ref HTTP_302: String = String::from("302 FOUND");
-    static ref HTTP_NEXT_LINE: Vec<u8> = b"\r\n".to_vec();
-    static ref HTTP_LOCATION: Vec<u8> = b"Location: ".to_vec();
+
+    // Default Response, clone for Edit.
+    pub static ref RESPONSE_DEF: Response = Response {
+        status_code: HTTP_404.clone(),
+        binary_data: Vec::new(),
+
+        cookie: Cookie::const_new(),
+        setting: SettingResponse::const_new(),
+    };
 }
 
-/// Functions: Make a new Response, Make from Function and Write Response into Line.
+/// Functions: Make from Function and Write Response into Line.
 impl Response {
-    #[inline]
-    /// Make a New Default Structure.
-    pub fn new() -> Response {
-        Response {
-            status_code: HTTP_404.clone(),
-            binary_data: Vec::new(),
-
-            cookie: Cookie::const_new(),
-            setting: SettingResponse::const_new(),
-        }
-    }
-
     #[inline]
     /// Make a New Structure from Function.
     /// * fn_edit = Function for Edit Structure.
     pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
-        let mut response = Response::new();
+        let mut response = RESPONSE_DEF.clone();
         fn_edit(&mut response);
         return response;
     }
@@ -95,8 +90,9 @@ impl Response {
 
         let data = string_data.as_ref();
 
-        self.binary_data.reserve(data.len() + 10);
-        self.binary_data = HTTP_NEXT_LINE.clone();
+        self.binary_data.clear();
+        self.binary_data.reserve(data.len() + 4);
+        self.binary_data.extend_from_slice(b"\r\n");
         self.binary_data.extend_from_slice(data);
     }
 
@@ -109,8 +105,9 @@ impl Response {
 
         let location = location.as_ref();
 
-        self.binary_data.reserve(location.len() + 10);
-        self.binary_data = HTTP_LOCATION.clone();
+        self.binary_data.clear();
+        self.binary_data.reserve(location.len() + 12);
+        self.binary_data.extend_from_slice(b"Location: ");
         self.binary_data.extend_from_slice(location);
     }
 }
@@ -123,7 +120,7 @@ impl Response {
     /// * file_path = Path to File.
     /// * type_file = Type File (For example: image/png, video/mp4).
     pub fn new_from_file<Q: AsRef<Path>, W: Display>(file_path: Q, type_file: W) -> Response {
-        let mut response = Response::new();
+        let mut response = RESPONSE_DEF.clone();
         response.set_file(file_path, type_file);
         return response;
     }
