@@ -28,6 +28,7 @@ impl HttpSever for Server {
         match request.url.as_str() {
             "/response" => {
                 response.set_file("examples_rs/webpage.html", "text/html");
+                
                 response.cookie.add("net", "qwe");
                 response.cookie.delete("qwe");
             }
