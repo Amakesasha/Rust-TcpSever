@@ -1,23 +1,25 @@
 use crate::*;
 
-/// System Thread Pool.
+/// ThreadPool.
 pub struct ThreadPool {
-    /// Threads Workers.
+    /// Executing threads.
     pub workers: Vec<Worker>,
-    /// Job for Workers.
-    pub sender: Option<mpsc::Sender<JobForWorkers>>,
-    /// Min number Workers.
-    pub num_thr: usize,
+    /// Channel for transferring work to the executing thread.
+    pub sender: mpsc::Sender<WorkThreads>,
 }
 
-/// Job, for Workers.
-pub type JobForWorkers = Box<dyn FnOnce() + Send + 'static>;
+/// Work for execution threads.
+pub type WorkThreads = Box<dyn FnOnce() + Send + 'static>;
 
-/// Functions to Make New Struct and Add Worker.
+/// Functions for creating [ThreadPool] and working with it.
 impl ThreadPool {
     #[inline]
-    /// Make a New Thread Pool, and Make Min (num_thr) Worker.
-    /// * num_thr = Min number Worker.
+    /// Creating a new ThreadPool
+    /// * num_thr = Quantity execution threads.
+    /// # Examples
+    /// ```
+    /// let thread_pool = ThreadPool::new(4);
+    /// ```
     pub fn new(num_thr: usize) -> ThreadPool {
         assert!(num_thr > 0);
 
@@ -29,55 +31,71 @@ impl ThreadPool {
 
         ThreadPool {
             workers,
-            sender: Some(sender),
-            num_thr,
+            sender,
         }
     }
 
     #[inline]
-    /// Send new Job.
-    pub fn add_job<F>(&self, f: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
+    /// Sending work to executing threads.
+    /// # Examples
+    /// ```
+    /// let thread_pool = ThreadPool::new(4);
+    /// thread_pool.add(|| println!("This Work!") );
+    /// ```
+    pub fn add<F: FnOnce() + Send + 'static>(&self, f: F) {
         let job = Box::new(f);
 
-        match self.sender.as_ref() {
-            Some(data) => data.send(job).unwrap_or(()),
-            None => return,
+        if let Err(e) = self.sender.send(job) {
+            eprintln!("THREAD_POOL | ERROR | SENDING | {e:?}");
+        }
+    }
+
+    #[inline]
+    /// Run multiple functions.
+    /// * vec_fn = Vector Functions.
+    /// # Examples
+    /// ```
+    /// ThreadPool::launch(
+    ///     || println!("This Work 1!"),
+    ///     || println!("This Work 2!"),
+    ///     || println!("This Work 3!"),
+    /// );
+    /// ```
+    pub fn launch<F: FnOnce() + Send + 'static>(vec_fn: Vec<F>) {
+        let thread_pool = ThreadPool::new(vec_fn.len());
+
+        for function in vec_fn {
+            thread_pool.add(function);
         }
     }
 }
 
-/// Impl Trait Drop for ThreadPool
 impl Drop for ThreadPool {
     #[inline]
-    /// Drop Thread Pool.
     fn drop(&mut self) {
         for worker in &mut self.workers {
-            if let Some(thread) = worker.thread.take() {
-                thread.join().unwrap_or(());
+            if let Some(thread) = worker.0.take() {
+                if let Err(e) = thread.join() {
+                    eprintln!("THREAD_POOL | ERROR | SHOT_DOWN | {e:?}");
+                }
             }
         }
     }
 }
 
-/// Worker (Thread do Job).
-pub struct Worker {
-    /// Thread Job.
-    pub thread: Option<thread::JoinHandle<()>>,
-}
+/// Execution threads.
+pub struct Worker ( Option<thread::JoinHandle<()>> );
 
-/// Function Make a new Worker.
+/// Functions for creating new execution threads.
 impl Worker {
     #[inline]
-    /// Make a new Worker.
-    /// * receiver = Thread Send-Read.
-    pub fn new(receiver: Arc<Mutex<mpsc::Receiver<JobForWorkers>>>) -> Worker {
+    /// Functions for creating new execution threads.
+    /// * receiver = Work acceptance thread.
+    pub fn new(receiver: Arc<Mutex<mpsc::Receiver<WorkThreads>>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = match receiver.lock() {
                 Ok(data) => data.recv(),
-                _ => break,
+                Err(_) => break,
             };
 
             match message {
@@ -86,8 +104,6 @@ impl Worker {
             }
         });
 
-        Worker {
-            thread: Some(thread),
-        }
+        Worker (Some(thread))
     }
 }

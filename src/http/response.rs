@@ -1,64 +1,77 @@
 use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// Response Structure
+/// Response
 pub struct Response {
-    /// Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK).
+    /// HTTP status code.
     pub status_code: String,
-    /// Data Response.
+    /// Response data.
     pub binary_data: Vec<u8>,
-    /// Cookies Files, Write into structure for easy development.
-    pub cookie: Cookie,
-    /// Add Setting Response (For example: Content-Type, Data).
+    /// Cookies.
+    pub cookie: Cookies,
+    /// SettingResponse.
     pub setting: SettingResponse,
 }
 
 lazy_static! {
+    /// HTTP status code 404.
     static ref HTTP_404: String = String::from("404 NOT FOUND");
+    /// HTTP status code 302.
     static ref HTTP_302: String = String::from("302 FOUND");
 
-    // Default Response, clone for Edit.
+    /// [Response] instance to copy and modify.
     pub static ref RESPONSE_DEF: Response = Response {
         status_code: HTTP_404.clone(),
         binary_data: Vec::new(),
 
-        cookie: Cookie::const_new(),
+        cookie: Cookies::const_new(),
         setting: SettingResponse::const_new(),
     };
 }
 
-/// Functions: Make from Function and Write Response into Line.
+/// Function for creating [Response] and converting it into HTTP Response.
 impl Response {
     #[inline]
-    /// Make a New Structure from Function.
-    /// * fn_edit = Function for Edit Structure.
+    /// Creating a new instance of a [Response] from a function.
+    /// * fn_edit = Function to change the created Response.
+    /// # Examples
+    /// ```
+    /// Response::new_from_fn(|resp| {
+    ///     resp.set_response("200 OK", "123");
+    ///     resp.cookie.add("Sample Name", "Sample Text");
+    ///     resp.setting.add("Content-Type", "text/html");
+    /// });
+    /// ```
     pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
         let mut response = RESPONSE_DEF.clone();
         fn_edit(&mut response);
-        return response;
+        response
     }
 
     #[inline]
-    /// Parse Structure into Line. You don't used this function, but you can.
-    /// * status_code = Status Response (For example: 404 NOT FOUND, 302 FOUND, 200 OK).
-    /// * response = Response which Will into Line.
+    /// Formatting the [Response] in an HTTP response.
+    /// * http = HTTP type.
+    /// * status_code = HTTP response status.
+    /// * response = [Response] to translate to string.
     pub fn format_arg<W: Display + ?Sized>(status_code: &W, response: &Response) -> String {
-        format!(
-            "{} {}\r\n{}{}",
-            unsafe { TYPE_HTTP },
-            status_code,
-            response.cookie.0,
-            response.setting.0,
-        )
+        format!("HTTP/1.1 {}\r\n{}{}", status_code, response.cookie.0, response.setting.0)
     }
 }
 
-/// Functions from edit Html.
+/// HTML file builder.
 impl Response {
     #[inline]
-    /// Function for Working with Response::echo().
-    /// * head = Function on Creating the Html part of the Head.
-    /// * body = Function on Creating the Html part of the Body.
+    /// Function to run [Response::echo].
+    /// * head = Function to create HEAD HTML.
+    /// * body = Function to create BODY HTML.
+    /// # Examples
+    /// ```
+    /// let mut response = RESPONSE_DEF.clone();
+    /// response.html(
+    ///     |resp| resp.echo("Example Head"),
+    ///     |resp| resp.echo("Example Body");,
+    /// );
+    /// ```
     pub fn html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(&mut self, head: Q, body: W) {
         self.set_response("200 OK", "");
         self.binary_data.extend_from_slice(b"<html><head>");
@@ -69,19 +82,33 @@ impl Response {
     }
 
     #[inline]
-    /// Adding a String to Html. Don't Use this Outside of Response::html().
-    /// * data = Data for Add.
+    /// Adding a line to html. If you use outside [Response::html],
+    /// run self.set_response("200 OK", ""); before using.
+    /// * data = Line to add.
+    /// # Examples
+    /// ```
+    /// let mut response = RESPONSE_DEF.clone();
+    /// response.html(
+    ///     |resp| resp.echo("Example Head"),
+    ///     |resp| resp.echo("Example Body");,
+    /// );
+    /// ```
     pub fn echo<Q: AsRef<[u8]>>(&mut self, data: Q) {
         self.binary_data.extend_from_slice(data.as_ref());
     }
 }
 
-/// Functions for edit Response.
+/// Functions to change [Response].
 impl Response {
     #[inline]
-    /// Set Response. You can used &str or String.
-    /// * status = Status Response.
-    /// * data = Write Data.
+    /// Inserts HTTP code status and data into Response.
+    /// * status = HTTP code status.
+    /// * data = Recorded data.
+    /// # Examples
+    /// ```
+    /// let mut response = RESPONSE_DEF.clone();
+    /// response.set_response("200 OK", "All good");
+    /// ```
     pub fn set_response<Q, W: AsRef<[u8]>>(&mut self, status: Q, string_data: W)
     where
         String: From<Q>,
@@ -97,9 +124,13 @@ impl Response {
     }
 
     #[inline]
-    /// Redirect client. You can used &str or String.
-    /// Don't used "Content-Type" with this!
-    /// * location = Redirect Url.
+    /// Redirecting the client to a specific url.
+    /// * location = Redirect url.
+    /// # Examples
+    /// ```
+    /// let mut response = RESPONSE_DEF.clone();
+    /// response.set_redirect("/test_url");
+    /// ```
     pub fn set_redirect<Q: AsRef<[u8]>>(&mut self, location: Q) {
         self.status_code = HTTP_302.clone();
 
@@ -112,36 +143,42 @@ impl Response {
     }
 }
 
-/// Set and Make Response From Files
+/// Working with files.
 impl Response {
     #[inline]
-    /// Make a New Response from File. If don't open File, status code will set 404 NOT FOUND.
-    /// You can used &str or String.
-    /// * file_path = Path to File.
-    /// * type_file = Type File (For example: image/png, video/mp4).
+    /// Creating a new [Response] from files.
+    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
+    /// * file_path = Path to file.
+    /// * type_file = File type.
+    /// # Examples
+    /// ```
+    /// Response::new_from_file("/test_path", "text/html");
+    /// ```
     pub fn new_from_file<Q: AsRef<Path>, W: Display>(file_path: Q, type_file: W) -> Response {
         let mut response = RESPONSE_DEF.clone();
         response.set_file(file_path, type_file);
-        return response;
+        response
     }
 
     #[inline]
-    /// Open File, Read, after Write to Client. If don't open file, status code will set 404 NOT FOUND.
-    /// You can used &str or String.
-    /// * file_path = Path to File.
-    /// * type_file = Type File (For example: image/png, video/mp4).
+    /// Writing a file to [Response].
+    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".=
+    /// * file_path = Path to file.
+    /// * type_file = File type.
+    /// # Examples
+    /// ```
+    /// let mut response = RESPONSE_DEF.clone();
+    /// response.set_file("/test_path", "text/html");
+    /// ```
     pub fn set_file<Q: AsRef<Path>, W: Display>(&mut self, file_path: Q, type_file: W) {
         if let Ok(mut file) = File::open(file_path) {
             let mut buffer = Vec::new();
 
-            match file.read_to_end(&mut buffer) {
-                Ok(_) => {
-                    self.set_response("200 OK", buffer);
-                    self.setting.add("Content-Type", type_file);
+            if file.read_to_end(&mut buffer).is_ok() {
+                self.set_response("200 OK", buffer);
+                self.setting.add("Content-Type", type_file);
 
-                    return;
-                }
-                Err(_) => {}
+                return;
             }
         }
 
@@ -152,31 +189,43 @@ impl Response {
 //
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// Cookies Files.
-pub struct Cookie(pub String);
+/// Cookies.
+pub struct Cookies(pub String);
 
-/// Functions Make and Edit Cookies.
-impl Cookie {
-    /// Make a new Cookies Files.
+/// Functions for creating and changing [Cookies].
+impl Cookies {
+    /// Creating New [Cookies].
+    /// # Examples
+    /// ```
+    /// Cookies::const_new();
+    /// ```
     #[inline]
     pub const fn const_new() -> Self {
-        Cookie { 0: String::new() }
+        Cookies(String::new())
     }
 
     #[inline]
-    /// Addition Cookie. You can used &str or String.
-    /// At Set the cookie Value, then Set the cookie other Value, will be done last action.
-    /// * name = Name Cookie.
-    /// * value = Name Cookie
+    /// Adding cookies.
+    /// * name = Cookie name.
+    /// * value = Cookie value.
+    /// # Examples
+    /// ```
+    /// let mut cookies = Cookies::const_new();
+    /// cookies.add("testName", "testVale");
+    /// ```
     pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
         self.0
             .push_str(&format!("Set-Cookie: {}={}\r\n", name, value));
     }
 
     #[inline]
-    /// Delete Cookie. You can used &str or String.
-    /// At add the cookie, then delete the cookie, will be done last action.
-    /// * name = Name Cookie.
+    /// Deleting cookies.
+    /// * name = Cookie name.
+    /// # Examples
+    /// ```
+    /// let mut cookies = Cookies::const_new();
+    /// cookies.delete("testName");
+    /// ```
     pub fn delete<Q: Display>(&mut self, name: Q) {
         self.0.push_str(&format!(
             "Set-Cookie: {}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n",
@@ -186,21 +235,30 @@ impl Cookie {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// Setting Response.
+/// [Response] Settings.
 pub struct SettingResponse(pub String);
 
-/// Functions Make and Edit Setting Response.
+/// Functions for creating and changing [SettingResponse];
 impl SettingResponse {
-    /// Make a new Setting Response.
+    /// Creating New [SettingResponse].
+    /// # Examples
+    /// ```
+    /// SettingResponse::const_new();
+    /// ```
     #[inline]
     pub const fn const_new() -> Self {
-        SettingResponse { 0: String::new() }
+        SettingResponse(String::new())
     }
 
     #[inline]
-    /// Addition Setting Response. You can used &str or String.
-    /// * name = Name Setting.
-    /// * value = Name Setting
+    /// Adding SettingResponse.
+    /// * name = Setting name.
+    /// * value = Setting value.
+    /// # Examples
+    /// ```
+    /// let mut setting = SettingResponse::const_new();
+    /// setting.add("testName", "testValue");
+    /// ```
     pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
         self.0.push_str(&format!("{}: {}\r\n", name, value));
     }

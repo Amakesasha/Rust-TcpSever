@@ -1,15 +1,19 @@
-#![crate_name = "rust_tcp_sever"]
-#![crate_type = "lib"]
+//! A simple and lightweight crate for launching and using a server.
 
-extern crate lazy_static;
+#![deny(warnings)]
+#![deny(missing_docs)]
+#![deny(dead_code)]
+#![deny(unused)]
+#![deny(unreachable_code)]
+#![deny(private_in_public)]
+#![deny(nonstandard_style)]
 
-/// Clean Server.
+/// Clean server.
 pub mod clean {
     /// Server.
     pub mod server;
 }
-
-/// HTTP Server.
+/// HTTP server.
 pub mod http {
     /// Request.
     pub mod request;
@@ -19,10 +23,11 @@ pub mod http {
     pub mod server;
 }
 
-/// Rest Files for Work Server.
+/// The remaining files for the server to work.
 pub mod rest {
-    /// Modified Thread Pool (From [Rust-Official-Book](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html))
-    /// Static Query Processing Thread System.
+    /// Enumeration for displaying information about the server's operation.
+    pub mod server_info;
+    /// Modified ThreadPool (From [Rust-Official-Book](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html))
     pub mod thread_pool;
 }
 
@@ -32,15 +37,17 @@ pub(crate) use std::{
     convert::AsRef,
     fmt::Display,
     fs::File,
+    str::FromStr,
     io::{BufReader, BufWriter, Read, Write},
     path::Path,
     sync::{mpsc, Arc, Mutex, RwLock},
     thread,
+    net::{SocketAddr, ToSocketAddrs},
 };
 
 pub use crate::{
+    clean::server::*,
     http::{request::*, response::*, server::*},
-    rest::{thread_pool::*},
-    clean::{server::*}
+    rest::{server_info::*, thread_pool::*},
 };
 pub use std::net::{TcpListener, TcpStream};

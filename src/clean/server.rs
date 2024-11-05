@@ -1,16 +1,18 @@
 use crate::*;
 
-/// Tcp Server.
-static mut CLEAN_LISTENER: Option<TcpListener> = None;
-
-/// Tcp Server Structure.
+/// TCP server.
 pub struct CleanServer;
 
-/// Functions for Work CleanServer.
+/// Default server functions.
 impl CleanServer {
     #[inline]
-    /// Read Data Send to Stream. Parse this Data Into String. End Return the Line.
-    /// * stream = IpAddr, Client for Read and Write. Only from the Server!
+    /// Function for reading request.
+    /// * stream = Client IP address.
+    /// # Examples
+    /// ```
+    /// let stream = TcpStream::connect("Your Ip").unwrap();
+    /// CleanServer::read(&stream).unwrap();
+    /// ```
     pub fn read(mut stream: &TcpStream) -> Option<String> {
         let mut buffer = [32; 1024];
 
@@ -21,70 +23,52 @@ impl CleanServer {
     }
 
     #[inline]
-    /// Write Data in Stream.
-    /// * stream = IpAddr client for Read and Write. Only from the Server!
-    /// * data = Binary Data (Or String Data Into Binary Data).
+    /// Function to write data to [TcpStream].
+    /// * stream = Client IP address.
+    /// * data = Output data.
+    /// # Examples
+    /// ```
+    /// let stream = TcpStream::connect("Your Ip").unwrap();
+    /// HttpServer::write(&stream, b"qweqwe");
+    /// ```
     pub fn write<Q: AsRef<[u8]>>(mut stream: &TcpStream, data: Q) {
-        BufWriter::new(&mut stream).write(data.as_ref()).unwrap_or(0);
+        BufWriter::new(&mut stream)
+            .write_all(data.as_ref())
+            .unwrap_or(());
     }
 }
 
-/// Functions for Edit Setting CleanServer
-impl CleanServer {
+/// Trait for server operation.
+pub trait CleanControl {
     #[inline]
-    /// Set CleanServer. Default Value == None
-    /// * When Value == None, Will Load Error.
-    /// * server = CleanServer.
-    pub fn set_server(server: TcpListener) {
-        unsafe {
-            CLEAN_LISTENER = Some(server);
-        }
-    }
-
-    #[inline]
-    /// Set CleanServer. Default Value == None
-    /// * When Value == None, Will Load Error.
-    /// * server = CleanServer.
-    pub fn get_server<'a>() -> &'static TcpListener {
-        unsafe { CLEAN_LISTENER.as_ref().unwrap() }
-    }
-}
-
-/// Trait Control Server.
-pub trait CleanSever {
-    #[inline]
-    /// Launches Read-Write in the Loop, Server.
-    /// * num_thr = Number Workers in ThreadPool.
-    fn launch(num_thr: usize) {
-        CleanServerInfo::launch();
+    /// Starting the server.
+    /// * listener = TcpListener.
+    /// * num_thr = Number of threads.
+    /// # Examples
+    /// ```
+    /// fn example() {
+    ///     Server::clean_launch(TcpListener::bind("127.0.0.1:80").unwrap(), 4);
+    /// }
+    ///
+    /// struct Server;
+    ///
+    /// impl CleanSever for Server {
+    ///     fn work(_stream: &TcpStream) {}
+    /// }
+    /// ```
+    fn clean_launch(listener: TcpListener, num_thr: usize) {
+        ServerInfo::launch(&listener, ServerInfo::Clean);
 
         let thread_pool = ThreadPool::new(num_thr);
 
-        for stream in CleanServer::get_server().incoming().filter_map(Result::ok) {
-            thread_pool.add_job(move || Self::work(&stream));
+        for stream in listener.incoming().filter_map(Result::ok) {
+            thread_pool.add(move || Self::work(&stream));
         }
 
-        CleanServerInfo::shotdown();
+        ServerInfo::shotdown(&listener, ServerInfo::Clean);
     }
 
-    /// Your Functuin for Work with Client.
-    /// * stream = Thread Read-Write between Server and Client.
+    /// Your work with TcpStream;
+    /// * stream = Client IP address.
     fn work(stream: &TcpStream);
-}
-
-/// Struct For Print Information about Working Server.
-pub struct CleanServerInfo;
-
-impl CleanServerInfo {
-    #[inline]
-    /// Print about Launch Server.
-    pub fn launch() {
-        println!("SERVER | CLEAN | {} | LAUNCH ", CleanServer::get_server().local_addr().unwrap());
-    }
-
-    #[inline]
-    /// Print about ShotDown Server.
-    pub fn shotdown() {
-        println!("SERVER | CLEAN | {} | SHOT DOWN ", CleanServer::get_server().local_addr().unwrap());
-    }
 }
