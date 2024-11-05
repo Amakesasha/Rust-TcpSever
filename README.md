@@ -17,7 +17,7 @@
 
 # Supported Protocols
 * [Without protocol](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/clean.rs)
-* [HTTP](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/http)
+* [HTTP](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/)
 
 # Usage example: 
 * See [rest Example](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples) or [Write to Server](https://discord.com/invite/dYz6sYmmuu).
