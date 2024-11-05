@@ -7,7 +7,7 @@ description = "A simple and lightweight crate for launching and using a server."
 readme = "README.md"
 repository = "https://github.com/Amakesasha/Rust-TcpSever"
 license = "MIT"
-keywords = ["tcp_server", "rust_server", "rust_tcp_server", "web", "tcp", "server"]
+keywords = ["tcp_server", "web", "tcp", "server"]
 categories = ["web-programming::http-server", "web-programming"]
 
 [dependencies]
