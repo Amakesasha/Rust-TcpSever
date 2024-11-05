@@ -24,7 +24,7 @@
 ## Cargo.toml:
 ``` Toml
 [dependencies]
-rust_tcp_sever = "0.2.1"'
+rust_tcp_sever = "0.2.1"
 ```
 ## src/main.rs:
  ``` Rust
@@ -59,7 +59,7 @@ The library will be updated as new proposals and ideas are received. I will try 
 # Contact Information
 * [Discord Server](https://discord.com/invite/dYz6sYmmuu)
 * [Telegram Сhannel](https://t.me/rust_tcp_sever)
-* ["New version, new bugs, new offers"]()
+* ["New version, new bugs, new offers"](https://users.rust-lang.org/t/rust-tcpsever-new-version-new-bugs-new-offers/120715)
 
 # License
 This project is licensed under the [MIT license](https://github.com/Amakesasha/Rust-TcpSever/blob/main/LICENSE).
