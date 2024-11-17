@@ -1,90 +1,44 @@
 use crate::*;
 
-lazy_static! {
-    /// HTTP communication map default code and file status.
-    pub static ref MAP_CODE_PAGE: Arc<RwLock<HashMap<String, Vec<u8>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-}
-
-/// Function for reading a request and parsing it into [Request].
-pub type HttpRead = for<'staitc> fn(&'staitc TcpStream) -> Option<Request>;
-/// Function to write data to [TcpStream].
-pub type HttpWrite = for<'a> fn(&'a TcpStream, &'a [u8]);
+/// HTTP communication map default code and file status.
+pub static mut DEF_PAGES: Option<HashMap<String, Vec<u8>>> = None;
 
 /// HTTP server.
 pub struct HttpServer;
 
-/// Default server functions.
-impl HttpServer {
-    #[inline]
-    /// A function for reading a request and parsing it into [Request].
-    /// * stream = Client IP address.
-    /// # Examples
-    /// ```
-    /// let stream = TcpStream::connect("Your Ip").unwrap();
-    /// HttpServer::read(&stream).unwrap();
-    /// ```
-    pub fn read(mut stream: &TcpStream) -> Option<Request> {
-        let mut buffer = [32; 1024];
-
-        let str_request = match BufReader::new(&mut stream).read(&mut buffer).ok()? {
-            0 => return None,
-            _ => String::from_utf8_lossy(&buffer),
-        };
-
-        str_request.trim().parse().ok()
-    }
-
-    #[inline]
-    /// Function to write data to [TcpStream].
-    /// * stream = Client IP address.
-    /// * data = Output data.
-    /// # Examples
-    /// ```
-    /// let stream = TcpStream::connect("Your Ip").unwrap();
-    /// HttpServer::write(&stream, b"qweqwe");
-    /// ```
-    pub fn write(mut stream: &TcpStream, data: &[u8]) {
-        BufWriter::new(&mut stream).write_all(data).unwrap_or_default();
-    }
-}
-
 /// Functions for changing the server.
 impl HttpServer {
     #[inline]
-    /// Set [struct@MAP_CODE_PAGE].
-    /// * map_code_page = HTTP communication map default code and file status.
+    /// Set DEF_PAGES.
+    /// * def_pages = HTTP communication map default code and file status.
     /// # Examples
     /// ```
-    /// HttpServer::set_map_code_page(vec![(
+    /// HttpServer::set_def_pages(vec![(
     ///     String::from("404 NOT FOUND"),
     ///     Response::new_from_file("examples_rs/defpage.html", "text/html"),
     /// )]);
     /// ```
-    pub fn set_map_code_page(map_code_page: Vec<(String, Response)>) {
-        *MAP_CODE_PAGE.write().unwrap() = map_code_page
+    pub fn set_def_pages(pree_def_pages: Vec<(String, Response)>) {
+        let def_pages = pree_def_pages
             .iter()
             .map(|(code, page)| {
                 (
                     code.clone(),
                     [
-                        Response::format_arg("200 OK", page).as_bytes(),
-                        &page.binary_data,
+                        page.to_string().as_bytes(),
+                        &page.body,
                     ]
                     .concat(),
                 )
             })
             .collect::<HashMap<String, Vec<u8>>>();
+
+        unsafe { DEF_PAGES = Some(def_pages) };
     }
 }
 
 /// Trait for server operation.
 pub trait HttpControl {
-    /// A function for reading a request and parsing it into [Request].
-    const FN_READ: HttpRead;
-    /// Function to write data to [TcpStream].
-    const FN_WRITE: HttpWrite;
-
     #[inline]
     /// Starting the server.
     /// * listener = TcpListener.
@@ -97,10 +51,7 @@ pub trait HttpControl {
     ///
     /// struct Server;
     ///
-    /// impl HttpSever for Server {
-    ///     const FN_READ: HttpRead = HttpServer::read;
-    ///     const FN_WRITE: HttpWrite = HttpServer::write;
-    ///
+    /// impl HttpControl for Server {
     ///     fn check_stream(_stream: &TcpStream) -> bool { true }
     ///     fn parser_request(_stream: &TcpStream, _request: &Request, _response: &mut Response) {}
     /// }
@@ -108,10 +59,10 @@ pub trait HttpControl {
     fn http_launch(listener: TcpListener, num_thr: usize) {
         ServerInfo::launch(&listener, ServerInfo::Http);
 
-        let thread_pool = ThreadPool::new(num_thr);
+        let mut thread_pool = ThreadStream::new(num_thr, Self::handle_connection);
 
         for stream in listener.incoming().filter_map(Result::ok) {
-            thread_pool.add(|| Self::handle_connection(stream).unwrap_or(()));
+            thread_pool += stream;
         }
 
         ServerInfo::shotdown(&listener, ServerInfo::Http);
@@ -120,27 +71,28 @@ pub trait HttpControl {
     #[inline]
     /// Function for working with a client.
     /// * stream = Client IP address.
-    fn handle_connection(stream: TcpStream) -> Option<()> {
+    fn handle_connection<'a>(stream: &mut TcpStream) -> Option<()> {
         if !Self::check_stream(&stream) {
             return None;
         }
 
-        let request = Self::FN_READ(&stream)?;
+        let request = Request::option_from(stream)?;
         let mut response = RESPONSE_DEF.clone();
 
         Self::parser_request(&stream, &request, &mut response);
 
-        match MAP_CODE_PAGE.read().ok()?.get(&response.status_code) {
-            Some(data) => Self::FN_WRITE(&stream, data),
-            None => {
-                Self::FN_WRITE(
-                    &stream,
-                    Response::format_arg(&response.status_code, &response)
-                        .as_bytes(),
-                );
-                Self::FN_WRITE(&stream, &response.binary_data);
+        let mut buffer = BufWriter::new(stream);
+
+        if let Some(def_pages) = unsafe { &DEF_PAGES } {
+            if let Some(page) = def_pages.get(&response.status_code) {
+                buffer.write_all(page).ok()?;
+
+                return Some(());
             }
         }
+
+        buffer.write_all(response.to_string().as_bytes()).ok()?;
+        buffer.write_all(&response.body).ok()?;
 
         Some(())
     }
@@ -159,3 +111,4 @@ pub trait HttpControl {
     /// * response = [Response].
     fn parser_request(stream: &TcpStream, request: &Request, response: &mut Response);
 }
+

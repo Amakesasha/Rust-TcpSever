@@ -1,15 +1,17 @@
 use rust_tcp_sever::*;
 
 fn main() {
-    Server::http_launch(TcpListener::bind("127.0.0.1:1").unwrap(), 4);
+    HttpServer::set_def_pages(vec![(
+        String::from("404 NOT FOUND"),
+        Response::new_from_file("examples_rs/defpage.html", "text/html"),
+    )]);
+
+    Server::http_launch(TcpListener::bind("127.0.0.1:3").unwrap(), 4);
 }
 
 struct Server;
 
 impl HttpControl for Server {
-    const FN_READ: HttpRead = HttpServer::read;
-    const FN_WRITE: HttpWrite = HttpServer::write;
-
     #[inline]
     fn check_stream(_stream: &TcpStream) -> bool { true }
 
@@ -29,7 +31,7 @@ impl HttpControl for Server {
         match request.url.as_str() {
             // Function from PHP.
             "/echo" => Self::echo(response),
-            // Example of working with "Cookies" and "SettingResponse".
+            // Example of working with "ResponseCookies" and "ResponseSetting".
             "/cookie_setting" => Self::cookie_setting(response),
             // Manually entering a response.
             "/all_good" => response.set_response("200 OK", "All Good :>"),
@@ -39,13 +41,13 @@ impl HttpControl for Server {
         }
 
         match request.url.as_str() {
-            "/response/_clone" => *response = RESPONSE_DEF.clone(),
+            "/response/clone" => *response = RESPONSE_DEF.clone(),
             "/response/new_from_file" => *response = Response::new_from_file("page.html", "text/html"),
             "/response/new_from_fn" => *response = Response::new_from_fn(|resp| {
                 resp.set_response("200 OK", "<p>123<p>");
 
-                resp.cookie.add("Sample Name", "Sample Text");
-                resp.setting.add("Content-Type", "text/html");
+                resp.cookie += ("Sample Name", "Sample Text");
+                resp.setting += ("Content-Type", "text/html");
             }),
             _ => {}
         };
@@ -70,15 +72,15 @@ impl Server {
         );
     }
 
-    // Example of working with "Cookies" and "SettingResponse".
+    // Example of working with "ResponseCookies" and "ResponseSetting".
     fn cookie_setting(response: &mut Response) {
-        response.cookie.add("Sample Name", "Sample Text");
-        response.cookie.add("Test Cookie", "Test Value");
-        response.cookie.add("3141592", "3141592");
+        response.cookie += ("Sample Name", "Sample Text");
+        response.cookie += ("Test Cookie", "Test Value");
+        response.cookie += ("3141592", "3141592");
 
-        response.cookie.delete("3141592");
+        response.cookie -= "3141592";
 
-        response.setting.add("Content-Type", "text/html");
-        response.setting.add("Data", "12-12-1212");
+        response.setting += ("Content-Type", "text/html");
+        response.setting += ("Data", "12-12-1212");
     }
 }

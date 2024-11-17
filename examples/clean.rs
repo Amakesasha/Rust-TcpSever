@@ -1,5 +1,4 @@
-extern crate rust_tcp_sever;
-pub use rust_tcp_sever::*;
+use rust_tcp_sever::*;
 
 fn main() {
     // Running the server in 4 threads.
@@ -11,11 +10,13 @@ struct Server;
 impl CleanControl for Server {
     #[inline]
     // Function for working with Stream.
-    fn work(stream: &TcpStream) {
+    fn work(stream: &mut TcpStream) -> Option<()> {
         for _ in 0..3 {
             println!("{}", CleanServer::read(stream).unwrap());
 
             CleanServer::write(stream, "qwe");
         }
+
+        Some(())
     }
 }

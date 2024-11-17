@@ -1,16 +1,16 @@
 use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// Response
+/// Response.
 pub struct Response {
     /// HTTP status code.
     pub status_code: String,
-    /// Response data.
-    pub binary_data: Vec<u8>,
-    /// Cookies.
-    pub cookie: Cookies,
-    /// SettingResponse.
-    pub setting: SettingResponse,
+    /// Response body.
+    pub body: Vec<u8>,
+    /// ResponseCookies.
+    pub cookie: ResponseCookies,
+    /// ResponseHeaders.
+    pub setting: ResponseHeaders,
 }
 
 lazy_static! {
@@ -18,43 +18,23 @@ lazy_static! {
     static ref HTTP_404: String = String::from("404 NOT FOUND");
     /// HTTP status code 302.
     static ref HTTP_302: String = String::from("302 FOUND");
+    /// HTTP next line.
+    static ref HTTP_NEXT_LINE: Vec<u8> = b"\r\n".to_vec();
 
     /// [Response] instance to copy and modify.
     pub static ref RESPONSE_DEF: Response = Response {
         status_code: HTTP_404.clone(),
-        binary_data: Vec::new(),
+        body: Vec::new(),
 
-        cookie: Cookies::const_new(),
-        setting: SettingResponse::const_new(),
+        cookie: ResponseCookies::default(),
+        setting: ResponseHeaders::default(),
     };
 }
 
-/// Function for creating [Response] and converting it into HTTP Response.
-impl Response {
-    #[inline]
-    /// Creating a new instance of a [Response] from a function.
-    /// * fn_edit = Function to change the created Response.
-    /// # Examples
-    /// ```
-    /// Response::new_from_fn(|resp| {
-    ///     resp.set_response("200 OK", "123");
-    ///     resp.cookie.add("Sample Name", "Sample Text");
-    ///     resp.setting.add("Content-Type", "text/html");
-    /// });
-    /// ```
-    pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
-        let mut response = RESPONSE_DEF.clone();
-        fn_edit(&mut response);
-        response
-    }
-
-    #[inline]
-    /// Formatting the [Response] in an HTTP response.
-    /// * http = HTTP type.
-    /// * status_code = HTTP response status.
-    /// * response = [Response] to translate to string.
-    pub fn format_arg<W: Display + ?Sized>(status_code: &W, response: &Response) -> String {
-        format!("HTTP/1.1 {}\r\n{}{}", status_code, response.cookie.0, response.setting.0)
+impl Display for Response {
+    /// Function for converting [Response] into HTTP Response.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HTTP/1.1 {}\r\n{}{}", self.status_code, self.cookie.0, self.setting.0)
     }
 }
 
@@ -73,12 +53,14 @@ impl Response {
     /// );
     /// ```
     pub fn html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(&mut self, head: Q, body: W) {
-        self.set_response("200 OK", "");
-        self.binary_data.extend_from_slice(b"<html><head>");
+        self.status_code = HTTP_404.clone();
+        self.body = HTTP_NEXT_LINE.clone();
+
+        self.body.extend_from_slice(b"<html><head>");
         head(self);
-        self.binary_data.extend_from_slice(b"</head><body>");
+        self.body.extend_from_slice(b"</head><body>");
         body(self);
-        self.binary_data.extend_from_slice(b"</body></html>");
+        self.body.extend_from_slice(b"</body></html>");
     }
 
     #[inline]
@@ -94,12 +76,27 @@ impl Response {
     /// );
     /// ```
     pub fn echo<Q: AsRef<[u8]>>(&mut self, data: Q) {
-        self.binary_data.extend_from_slice(data.as_ref());
+        self.body.extend_from_slice(data.as_ref());
     }
 }
 
 /// Functions to change [Response].
 impl Response {
+    #[inline]
+    /// Creating a new instance of a [Response] from a function.
+    /// * fn_edit = Function to change the created Response.
+    /// # Examples
+    /// ```
+    /// Response::new_from_fn(|resp| {
+    ///     resp.set_response("200 OK", "123");
+    /// });
+    /// ```
+    pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
+        let mut response = RESPONSE_DEF.clone();
+        fn_edit(&mut response);
+        response
+    }
+
     #[inline]
     /// Inserts HTTP code status and data into Response.
     /// * status = HTTP code status.
@@ -117,10 +114,10 @@ impl Response {
 
         let data = string_data.as_ref();
 
-        self.binary_data.clear();
-        self.binary_data.reserve(data.len() + 4);
-        self.binary_data.extend_from_slice(b"\r\n");
-        self.binary_data.extend_from_slice(data);
+        self.body.clear();
+        self.body.reserve(data.len() + 4);
+        self.body.extend_from_slice(b"\r\n");
+        self.body.extend_from_slice(data);
     }
 
     #[inline]
@@ -136,10 +133,10 @@ impl Response {
 
         let location = location.as_ref();
 
-        self.binary_data.clear();
-        self.binary_data.reserve(location.len() + 12);
-        self.binary_data.extend_from_slice(b"Location: ");
-        self.binary_data.extend_from_slice(location);
+        self.body.clear();
+        self.body.reserve(location.len() + 12);
+        self.body.extend_from_slice(b"Location: ");
+        self.body.extend_from_slice(location);
     }
 }
 
@@ -176,7 +173,7 @@ impl Response {
 
             if file.read_to_end(&mut buffer).is_ok() {
                 self.set_response("200 OK", buffer);
-                self.setting.add("Content-Type", type_file);
+                self.setting += ("Content-Type", type_file);
 
                 return;
             }
@@ -189,77 +186,48 @@ impl Response {
 //
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// Cookies.
-pub struct Cookies(pub String);
+/// ResponseCookies.
+pub struct ResponseCookies(pub String);
 
-/// Functions for creating and changing [Cookies].
-impl Cookies {
-    /// Creating New [Cookies].
+impl<Q: Display, W: Display> AddAssign<(Q, W)> for ResponseCookies {
+    #[inline]
+    /// Adding Responsecookies.
     /// # Examples
     /// ```
-    /// Cookies::const_new();
+    /// let mut cookies = ResponseCookies::default();
+    /// cookies += ("testName", "testVale");
     /// ```
-    #[inline]
-    pub const fn const_new() -> Self {
-        Cookies(String::new())
+    fn add_assign(&mut self, (name, value): (Q, W)) {
+        self.0 += &format!("Set-Cookie: {name}={value}\r\n");
     }
+}
 
+impl<Q: Display> SubAssign<Q> for ResponseCookies {
     #[inline]
-    /// Adding cookies.
-    /// * name = Cookie name.
-    /// * value = Cookie value.
+    /// Deleting Responsecookies.
     /// # Examples
     /// ```
-    /// let mut cookies = Cookies::const_new();
-    /// cookies.add("testName", "testVale");
+    /// let mut cookies = ResponseCookies::default();
+    /// cookies -= "testName";
     /// ```
-    pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
-        self.0
-            .push_str(&format!("Set-Cookie: {}={}\r\n", name, value));
-    }
-
-    #[inline]
-    /// Deleting cookies.
-    /// * name = Cookie name.
-    /// # Examples
-    /// ```
-    /// let mut cookies = Cookies::const_new();
-    /// cookies.delete("testName");
-    /// ```
-    pub fn delete<Q: Display>(&mut self, name: Q) {
-        self.0.push_str(&format!(
-            "Set-Cookie: {}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n",
-            name
-        ));
+    fn sub_assign(&mut self, name: Q) {
+        self.0 += &format!("Set-Cookie: {name}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n");
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 /// [Response] Settings.
-pub struct SettingResponse(pub String);
+pub struct ResponseHeaders(pub String);
 
-/// Functions for creating and changing [SettingResponse];
-impl SettingResponse {
-    /// Creating New [SettingResponse].
+impl<Q: Display, W: Display> AddAssign<(Q, W)> for ResponseHeaders {
+    #[inline]
+    /// Adding ResponseHeaders.
     /// # Examples
     /// ```
-    /// SettingResponse::const_new();
+    /// let mut headers = ResponseHeaders::default();
+    /// headers += ("testName", "testValue");
     /// ```
-    #[inline]
-    pub const fn const_new() -> Self {
-        SettingResponse(String::new())
-    }
-
-    #[inline]
-    /// Adding SettingResponse.
-    /// * name = Setting name.
-    /// * value = Setting value.
-    /// # Examples
-    /// ```
-    /// let mut setting = SettingResponse::const_new();
-    /// setting.add("testName", "testValue");
-    /// ```
-    pub fn add<Q: Display, W: Display>(&mut self, name: Q, value: W) {
-        self.0.push_str(&format!("{}: {}\r\n", name, value));
+    fn add_assign(&mut self, (name, value): (Q, W)) {
+        self.0 += &format!("{name}: {value}\r\n");
     }
 }

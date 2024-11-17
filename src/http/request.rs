@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 /// Request.
 pub struct Request {
     /// Request method.
@@ -9,80 +9,86 @@ pub struct Request {
     pub url: String,
 
     /// Host.
-    pub host: Option<SocketAddr>,
-
+    pub host: Option<String>,
     /// Cookies.
-    pub cookie: HashMap<String, String>,
-    /// Additional Content.
-    pub add_content: HashMap<String, String>,
-    /// Last line of request.
-    pub last_line: String,
+    pub cookies: HashMap<String, String>,
+
+    /// HTTP headers.
+    pub headers: HashMap<String, String>,
+    /// HTTP body.
+    pub body: Vec<u8>,
 }
 
-/// Functions for parsing HTTP request in [Request].
-impl FromStr for Request {
-    type Err = bool;
-
+impl OptionFrom<&mut TcpStream> for Request {
     #[inline]
-    /// Function for parsing a request
-    /// * data = HTTP request.
-    /// # Examples
-    /// ```
-    /// const DATA: &str = "GET /response HTTP/1.1 \r\nHost: 127.0.0.1:443 \r\nCookie: net=qwe";
-    /// DATA.parse::<Request>().unwrap();
-    /// ```
-    fn from_str(data: &str) -> Result<Request, Self::Err> {
-        let mut split_line: Vec<&str> = data.lines().collect();
+    fn option_from(stream: &mut TcpStream) -> Option<Request> {
+        let mut reader = BufReader::new(stream);
+        let mut request_line = String::new();
 
-        let muh: Vec<&str> = split_line.first().ok_or(false)?.split_whitespace().collect();
-        let (method, mut url, last_line) = (
-            muh.first().ok_or(false)?,
-            muh.get(1).ok_or(false)?.to_string(),
-            split_line.pop().ok_or(false)?.to_string(),
-        );
+        if reader.read_line(&mut request_line).ok()? == 0 {
+            return None;
+        }
 
-        let host = split_line.iter()
-            .find(|line| line.starts_with("Host: "))
-            .map(|host_line| host_line.trim_start_matches("Host: ").to_socket_addrs())
-            .and_then(|addr| addr.ok().and_then(|mut addrs| addrs.next()));
+        let parts: Vec<&str> = request_line.trim().split_whitespace().collect();
+        if parts.len() != 3 {
+            return None;
+        }
 
-        let cookie = split_line.iter()
-            .find(|line| line.starts_with("Cookie: "))
-            .map(|cookie_line| Self::get_data(cookie_line.trim_start_matches("Cookie: "), "; "))
-            .unwrap_or_default();
+        let mut request = Request {
+            method: parts[0].parse().ok()?,
+            url: parts[1].to_string(),
 
-        let add_content = if !last_line.contains(": ") {
-            Self::get_data(&last_line, "&")
-        } else if let Some(index) = url.find('?') {
-            Self::get_data(&url.split_off(index + 1), "&")
-        } else {
-            HashMap::new()
+            host: None,
+            cookies: HashMap::new(),
+            
+            headers: HashMap::new(),
+            body: Vec::new(),
         };
 
-        Ok(Request {
-            method: method.parse()?,
-            url,
+        while let Some(header_line) = Self::read_header_line(&mut reader) {
+            let header_parts: Vec<&str> = header_line.trim().splitn(2, ':').collect();
+            if header_parts.len() == 2 {
+                let key = header_parts[0].trim().to_string();
+                let value = header_parts[1].trim().to_string();
+                request.headers.insert(key, value);
+            }
+        }
 
-            host,
+        if let Some(length) = request.headers.get("Content-Length").and_then(|val| val.parse::<usize>().ok()) {
+            let mut body = vec![0; length];
+            if reader.read_exact(&mut body).is_ok() {
+                request.body = body;
+            }
+        }
 
-            cookie,
-            add_content,
-            last_line,
+        if let Some(cookies) = request.headers.remove("Cookie") {
+            request.cookies = Self::get_data(&cookies, "&");
+        }
+        if let Some(host) = request.headers.remove("Host") {
+            request.host = Some(host);
+        }
 
-        })
+        Some(request)
     }
 }
 
 impl Request {
     #[inline]
+    /// Helper function for reading header lines
+    /// * reader = Buffer Reader.
+    pub fn read_header_line(reader: &mut BufReader<&mut TcpStream>) -> Option<String> {
+        let mut header_line = String::new();
+        if reader.read_line(&mut header_line).ok()? == 0 || header_line.trim().is_empty() {
+            return None;
+        }
+
+        Some(header_line)
+    }
+
+    #[inline]
     /// Function for parsing a string in a [HashMap].
     /// * data = Parsing string.
     /// * char_split = Divide symbol.
-    /// # Examples
-    /// ```
-    /// const DATA: &str = "net=qwe&qwe=qwe&asd=asd";
-    /// Request::get_data(DATA, "&");
-    /// ```
     pub fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
         data.split(char_split)
             .filter_map(|part| {
@@ -98,11 +104,14 @@ impl Request {
     }
 }
 
+
+
 //
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 /// HTTP method. Information taken from [the site](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods).
 pub enum HttpMethod {
+    #[default]
     /// The GET method requests a representation of the specified resource. 
     /// Requests using GET should only retrieve data and should not contain a request content.
     Get,
@@ -129,13 +138,6 @@ impl FromStr for HttpMethod {
     type Err = bool;
 
     #[inline]
-    /// Function for parsing a request
-    /// * data = HTTP request.
-    /// # Examples
-    /// ```
-    /// const DATA: &str = "GET";
-    /// DATA.parse::<HttpMethod>().unwrap();
-    /// ```
     fn from_str(data: &str) -> Result<HttpMethod, Self::Err> {
         match data {
             "GET" => Ok(HttpMethod::Get),

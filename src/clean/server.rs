@@ -52,17 +52,17 @@ pub trait CleanControl {
     ///
     /// struct Server;
     ///
-    /// impl CleanSever for Server {
+    /// impl CleanControl for Server {
     ///     fn work(_stream: &TcpStream) {}
     /// }
     /// ```
     fn clean_launch(listener: TcpListener, num_thr: usize) {
         ServerInfo::launch(&listener, ServerInfo::Clean);
 
-        let thread_pool = ThreadPool::new(num_thr);
+        let mut thread_pool = ThreadStream::new(num_thr, Self::work);
 
         for stream in listener.incoming().filter_map(Result::ok) {
-            thread_pool.add(move || Self::work(&stream));
+            thread_pool += stream;
         }
 
         ServerInfo::shotdown(&listener, ServerInfo::Clean);
@@ -70,5 +70,5 @@ pub trait CleanControl {
 
     /// Your work with TcpStream;
     /// * stream = Client IP address.
-    fn work(stream: &TcpStream);
+    fn work(stream: &mut TcpStream) -> Option<()>;
 }
