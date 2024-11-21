@@ -1,29 +1,29 @@
 use crate::*;
 
 /// Enumeration for displaying information about the server's operation.
-pub enum ServerInfo {
+pub enum TypeServer {
     /// HTTP server.
-    Http,
+    Http(usize),
     /// Clean server.
-    Clean,
+    Clean(usize),
 }
 
-/// Functions for notifying about server operation
-impl ServerInfo {
+/// Functions for notifying about server operation.
+impl TypeServer {
     #[inline]
     /// Conclusion about server startup.
     /// * listener = TcpListener.
     /// * type_server = Server type.
-    pub fn launch(listener: &TcpListener, type_server: ServerInfo) {
+    pub fn launch(listener: &TcpListener, type_server: TypeServer) {
         match type_server {
-            ServerInfo::Http => println!(
-                "SERVER | HTTP | {} | LAUNCH",
+            TypeServer::Http(number) => println!(
+                "SERVER | HTTP | {} | {number} | LAUNCH",
                 listener.local_addr().unwrap()
             ),
-            ServerInfo::Clean => println!(
-                "SERVER | CLEAN | {} | LAUNCH",
+            TypeServer::Clean(number) => println!(
+                "SERVER | CLEAN | {} | {number} | LAUNCH",
                 listener.local_addr().unwrap()
-            )
+            ),
         }
     }
 
@@ -31,14 +31,14 @@ impl ServerInfo {
     /// Conclusion about server shutdown.
     /// * listener = TcpListener.
     /// * type_server = Server type.
-    pub fn shotdown(listener: &TcpListener, type_server: ServerInfo) {
+    pub fn shotdown(listener: &TcpListener, type_server: TypeServer) {
         match type_server {
-            ServerInfo::Http => println!(
-                "SERVER | HTTP | {} | SHOT DOWN",
+            TypeServer::Http(number) => println!(
+                "SERVER | HTTP | {} | {number} | SHOT DOWN",
                 listener.local_addr().unwrap()
             ),
-            ServerInfo::Clean => println!(
-                "SERVER | CLEAN | {} | SHOT DOWN",
+            TypeServer::Clean(number) => println!(
+                "SERVER | CLEAN | {} | {number} | SHOT DOWN",
                 listener.local_addr().unwrap()
             ),
         }

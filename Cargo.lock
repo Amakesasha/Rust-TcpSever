@@ -3,14 +3,14 @@
 version = 3
 
 [[package]]
-name = "lazy_static"
-version = "1.5.0"
+name = "once_cell"
+version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "rust_tcp_sever"
 version = "0.2.2"
 dependencies = [
- "lazy_static",
+ "once_cell",
 ]

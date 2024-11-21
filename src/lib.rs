@@ -31,19 +31,19 @@ pub mod rest {
     pub mod thread_stream;
 }
 
-pub(crate) use lazy_static::lazy_static;
 pub(crate) use crate::rest::{server_info::*, thread_stream::*};
+pub(crate) use once_cell::sync::Lazy;
 pub(crate) use std::{
     collections::HashMap,
     convert::AsRef,
     fmt::Display,
     fs::File,
-    io::{BufReader, BufRead, BufWriter, Read, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
+    ops::{AddAssign, SubAssign},
     path::Path,
+    str::FromStr,
     sync::{mpsc, Arc, Mutex},
     thread,
-    str::FromStr,
-    ops::{AddAssign, SubAssign},
 };
 
 pub use crate::{
@@ -51,8 +51,8 @@ pub use crate::{
     http::{request::*, response::*, server::*},
 };
 pub use std::{
+    net::{TcpListener, TcpStream},
     time::Duration,
-    net::{TcpListener, TcpStream}
 };
 
 /// Trait for converting 1 type to another, in the Option wrapper.

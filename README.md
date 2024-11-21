@@ -52,6 +52,4 @@ impl HttpControl for Server {
 # Future of the Library
 
 The library will be updated as new proposals and ideas are received. I will try to post a new update every month.
-
-# License
-This project is licensed under the [MIT license](https://github.com/Amakesasha/Rust-TcpSever/blob/main/LICENSE).
+ 

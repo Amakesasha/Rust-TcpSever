@@ -1,10 +1,7 @@
 use rust_tcp_sever::*;
 
 fn main() {
-    HttpServer::set_def_pages(vec![(
-        String::from("404 NOT FOUND"),
-        Response::new_from_file("examples_rs/defpage.html", "text/html"),
-    )]);
+    set_def_pages!(("404 NOT FOUND", Response::from(("404.html", "text/html"))));
 
     Server::http_launch(TcpListener::bind("127.0.0.1:3").unwrap(), 4);
 }
@@ -13,7 +10,9 @@ struct Server;
 
 impl HttpControl for Server {
     #[inline]
-    fn check_stream(_stream: &TcpStream) -> bool { true }
+    fn check_stream(_stream: &TcpStream) -> bool {
+        true
+    }
 
     #[inline]
     fn parser_request(_stream: &TcpStream, request: &Request, response: &mut Response) {
@@ -42,13 +41,15 @@ impl HttpControl for Server {
 
         match request.url.as_str() {
             "/response/clone" => *response = RESPONSE_DEF.clone(),
-            "/response/new_from_file" => *response = Response::new_from_file("page.html", "text/html"),
-            "/response/new_from_fn" => *response = Response::new_from_fn(|resp| {
-                resp.set_response("200 OK", "<p>123<p>");
+            "/response/new_from_file" => *response = Response::from(("page.html", "text/html")),
+            "/response/new_from_fn" => {
+                *response = Response::from(|resp: &mut Response| {
+                    resp.set_response("200 OK", "<p>123<p>");
 
-                resp.cookie += ("Sample Name", "Sample Text");
-                resp.setting += ("Content-Type", "text/html");
-            }),
+                    resp.cookie += ("Sample Name", "Sample Text");
+                    resp.setting += ("Content-Type", "text/html");
+                })
+            }
             _ => {}
         };
     }

@@ -14,7 +14,7 @@ pub type FuncPoll = for<'a> fn(&'a mut TcpStream) -> Option<()>;
 /// Function for creating [ThreadStream].
 impl ThreadStream {
     #[inline]
-    /// Creating a new ThreadStream
+    /// Creating a new ThreadStream.
     /// * num_threads = Quantity execution threads.
     pub fn new(num_threads: usize, function: FuncPoll) -> ThreadStream {
         let (sender, receiver) = mpsc::channel();
@@ -23,17 +23,12 @@ impl ThreadStream {
             .map(|_id| Worker::new(Arc::clone(&receiver), function))
             .collect();
 
-        ThreadStream {
-            workers,
-            sender,
-        }
+        ThreadStream { workers, sender }
     }
 }
 
 impl AddAssign<TcpStream> for ThreadStream {
     #[inline]
-    /// Sending work to executing threads.
-    /// * stream = Client IP address.
     fn add_assign(&mut self, stream: TcpStream) {
         if let Err(e) = self.sender.send(stream) {
             eprintln!("THREAD_POOL | ERROR | SENDING | {e:?}");
@@ -55,7 +50,7 @@ impl Drop for ThreadStream {
 }
 
 /// Execution threads.
-pub struct Worker ( Option<thread::JoinHandle<()>> );
+pub struct Worker(Option<thread::JoinHandle<()>>);
 
 /// Functions for creating new execution threads.
 impl Worker {
@@ -76,6 +71,6 @@ impl Worker {
             };
         });
 
-        Worker (Some(thread))
+        Worker(Some(thread))
     }
 }

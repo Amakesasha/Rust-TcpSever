@@ -40,7 +40,7 @@ impl OptionFrom<&mut TcpStream> for Request {
 
             host: None,
             cookies: HashMap::new(),
-            
+
             headers: HashMap::new(),
             body: Vec::new(),
         };
@@ -48,13 +48,18 @@ impl OptionFrom<&mut TcpStream> for Request {
         while let Some(header_line) = Self::read_header_line(&mut reader) {
             let header_parts: Vec<&str> = header_line.trim().splitn(2, ':').collect();
             if header_parts.len() == 2 {
-                let key = header_parts[0].trim().to_string();
-                let value = header_parts[1].trim().to_string();
-                request.headers.insert(key, value);
+                request.headers.insert(
+                    header_parts[0].trim().to_string(),
+                    header_parts[1].trim().to_string(),
+                );
             }
         }
 
-        if let Some(length) = request.headers.get("Content-Length").and_then(|val| val.parse::<usize>().ok()) {
+        if let Some(length) = request
+            .headers
+            .get("Content-Length")
+            .and_then(|val| val.parse::<usize>().ok())
+        {
             let mut body = vec![0; length];
             if reader.read_exact(&mut body).is_ok() {
                 request.body = body;
@@ -104,20 +109,18 @@ impl Request {
     }
 }
 
-
-
 //
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 /// HTTP method. Information taken from [the site](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods).
 pub enum HttpMethod {
     #[default]
-    /// The GET method requests a representation of the specified resource. 
+    /// The GET method requests a representation of the specified resource.
     /// Requests using GET should only retrieve data and should not contain a request content.
     Get,
     /// The HEAD method asks for a response identical to a GET request, but without a response body.
     Head,
-    /// The POST method submits an entity to the specified resource, 
+    /// The POST method submits an entity to the specified resource,
     /// often causing a change in state or side effects on the server.
     Post,
     /// The PUT method replaces all current representations of the target resource with the request content.
@@ -149,7 +152,7 @@ impl FromStr for HttpMethod {
             "OPTIONS" => Ok(HttpMethod::Options),
             "TRACE" => Ok(HttpMethod::Trace),
             "PATCH" => Ok(HttpMethod::Patch),
-            _ => Err(false)
+            _ => Err(false),
         }
     }
 }

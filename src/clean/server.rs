@@ -57,15 +57,16 @@ pub trait CleanControl {
     /// }
     /// ```
     fn clean_launch(listener: TcpListener, num_thr: usize) {
-        ServerInfo::launch(&listener, ServerInfo::Clean);
+        TypeServer::launch(&listener, TypeServer::Clean(num_thr));
 
         let mut thread_pool = ThreadStream::new(num_thr, Self::work);
 
-        for stream in listener.incoming().filter_map(Result::ok) {
-            thread_pool += stream;
-        }
+        listener
+            .incoming()
+            .filter_map(Result::ok)
+            .for_each(|stream| thread_pool += stream);
 
-        ServerInfo::shotdown(&listener, ServerInfo::Clean);
+        TypeServer::shotdown(&listener, TypeServer::Clean(num_thr));
     }
 
     /// Your work with TcpStream;

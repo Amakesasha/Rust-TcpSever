@@ -1,40 +1,39 @@
 use crate::*;
 
 /// HTTP communication map default code and file status.
-pub static mut DEF_PAGES: Option<HashMap<String, Vec<u8>>> = None;
+pub static mut DEF_PAGES: Lazy<HashMap<String, Vec<u8>>> = Lazy::new(|| HashMap::new());
 
-/// HTTP server.
-pub struct HttpServer;
+#[macro_export]
+/// Set DEF_PAGES.
+/// # Examples
+/// ```
+/// set_def_pages!(
+///     ("404", Response::new_from_file("404.html", "text/html")),
+///     ("403", Response::new_from_file("403.html", "text/html")),
+/// );
+/// ```
+macro_rules! set_def_pages {
+    ($(($code:expr, $page:expr)),* $(,)?) => {{
+        use std::collections::HashMap;
+        use once_cell::sync::Lazy;
 
-/// Functions for changing the server.
-impl HttpServer {
-    #[inline]
-    /// Set DEF_PAGES.
-    /// * def_pages = HTTP communication map default code and file status.
-    /// # Examples
-    /// ```
-    /// HttpServer::set_def_pages(vec![(
-    ///     String::from("404 NOT FOUND"),
-    ///     Response::new_from_file("examples_rs/defpage.html", "text/html"),
-    /// )]);
-    /// ```
-    pub fn set_def_pages(pree_def_pages: Vec<(String, Response)>) {
-        let def_pages = pree_def_pages
-            .iter()
-            .map(|(code, page)| {
-                (
-                    code.clone(),
+        let def_pages: HashMap<String, Vec<u8>> = {
+            let mut map = HashMap::new();
+            $(
+                map.insert(
+                    format!("{}", $code),
                     [
-                        page.to_string().as_bytes(),
-                        &page.body,
+                        $page.to_string().as_bytes(),
+                        &$page.body,
                     ]
                     .concat(),
-                )
-            })
-            .collect::<HashMap<String, Vec<u8>>>();
+                );
+            )*
+            map
+        };
 
-        unsafe { DEF_PAGES = Some(def_pages) };
-    }
+        unsafe { *DEF_PAGES = def_pages };
+    }};
 }
 
 /// Trait for server operation.
@@ -57,15 +56,16 @@ pub trait HttpControl {
     /// }
     /// ```
     fn http_launch(listener: TcpListener, num_thr: usize) {
-        ServerInfo::launch(&listener, ServerInfo::Http);
-
         let mut thread_pool = ThreadStream::new(num_thr, Self::handle_connection);
 
-        for stream in listener.incoming().filter_map(Result::ok) {
-            thread_pool += stream;
-        }
+        TypeServer::launch(&listener, TypeServer::Http(num_thr));
 
-        ServerInfo::shotdown(&listener, ServerInfo::Http);
+        listener
+            .incoming()
+            .filter_map(Result::ok)
+            .for_each(|stream| thread_pool += stream);
+
+        TypeServer::shotdown(&listener, TypeServer::Http(num_thr));
     }
 
     #[inline]
@@ -83,18 +83,14 @@ pub trait HttpControl {
 
         let mut buffer = BufWriter::new(stream);
 
-        if let Some(def_pages) = unsafe { &DEF_PAGES } {
-            if let Some(page) = def_pages.get(&response.status_code) {
-                buffer.write_all(page).ok()?;
-
-                return Some(());
-            }
+        if let Some(page) = unsafe { DEF_PAGES.get(&response.status_code) } {
+            buffer.write_all(page).ok()?;
+        } else {
+            buffer.write_all(response.to_string().as_bytes()).ok()?;
+            buffer.write_all(&response.body).ok()?;
         }
 
-        buffer.write_all(response.to_string().as_bytes()).ok()?;
-        buffer.write_all(&response.body).ok()?;
-
-        Some(())
+        return buffer.flush().ok();
     }
 
     /// Your client ip check.
@@ -111,4 +107,3 @@ pub trait HttpControl {
     /// * response = [Response].
     fn parser_request(stream: &TcpStream, request: &Request, response: &mut Response);
 }
-

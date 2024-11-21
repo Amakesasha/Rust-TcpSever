@@ -7,36 +7,69 @@ pub struct Response {
     pub status_code: String,
     /// Response body.
     pub body: Vec<u8>,
-    /// ResponseCookies.
+    /// Response Cookies.
     pub cookie: ResponseCookies,
-    /// ResponseHeaders.
+    /// Response Headers.
     pub setting: ResponseHeaders,
 }
 
-lazy_static! {
-    /// HTTP status code 404.
-    static ref HTTP_404: String = String::from("404 NOT FOUND");
-    /// HTTP status code 302.
-    static ref HTTP_302: String = String::from("302 FOUND");
-    /// HTTP next line.
-    static ref HTTP_NEXT_LINE: Vec<u8> = b"\r\n".to_vec();
+/// HTTP status code 404.
+static HTTP_404: Lazy<String> = Lazy::new(|| String::from("404 NOT FOUND"));
+/// HTTP status code 302.
+static HTTP_302: Lazy<String> = Lazy::new(|| String::from("302 FOUND"));
+/// HTTP next line.
+static HTTP_NEXT_LINE: Lazy<Vec<u8>> = Lazy::new(|| b"\r\n".to_vec());
 
-    /// [Response] instance to copy and modify.
-    pub static ref RESPONSE_DEF: Response = Response {
-        status_code: HTTP_404.clone(),
-        body: Vec::new(),
+/// [Response] instance to copy and modify.
+pub static RESPONSE_DEF: Lazy<Response> = Lazy::new(|| Response {
+    status_code: HTTP_404.clone(),
+    body: Vec::new(),
 
-        cookie: ResponseCookies::default(),
-        setting: ResponseHeaders::default(),
-    };
-}
+    cookie: ResponseCookies::default(),
+    setting: ResponseHeaders::default(),
+});
 
 impl Display for Response {
     /// Function for converting [Response] into HTTP Response.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HTTP/1.1 {}\r\n{}{}", self.status_code, self.cookie.0, self.setting.0)
+        write!(
+            f,
+            "HTTP/1.1 {}\r\n{}{}",
+            self.status_code, self.cookie.0, self.setting.0
+        )
     }
 }
+
+impl<F: FnOnce(&mut Response)> From<F> for Response {
+    #[inline]
+    /// Creating a new instance of a [Response] from a function.
+    /// # Examples
+    /// ```
+    /// Response::from(|resp: &mut Response| resp.set_response("200 OK", "wer"));
+    /// ```
+    fn from(fn_edit: F) -> Self {
+        let mut response = RESPONSE_DEF.clone();
+        fn_edit(&mut response);
+        response
+    }
+}
+
+impl<P: AsRef<Path>, D: Display> From<(P, D)> for Response {
+    #[inline]
+    /// Creating a new [Response] from files.
+    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
+    /// # Examples
+    /// ```
+    /// Response::from(("/test_path", "text/html"));
+    /// ```
+    fn from((file_path, type_file): (P, D)) -> Self {
+        let mut response = RESPONSE_DEF.clone();
+        response.set_file(file_path, type_file);
+        response
+    }
+}
+
+//
 
 /// HTML file builder.
 impl Response {
@@ -80,23 +113,10 @@ impl Response {
     }
 }
 
+//
+
 /// Functions to change [Response].
 impl Response {
-    #[inline]
-    /// Creating a new instance of a [Response] from a function.
-    /// * fn_edit = Function to change the created Response.
-    /// # Examples
-    /// ```
-    /// Response::new_from_fn(|resp| {
-    ///     resp.set_response("200 OK", "123");
-    /// });
-    /// ```
-    pub fn new_from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Response {
-        let mut response = RESPONSE_DEF.clone();
-        fn_edit(&mut response);
-        response
-    }
-
     #[inline]
     /// Inserts HTTP code status and data into Response.
     /// * status = HTTP code status.
@@ -137,24 +157,6 @@ impl Response {
         self.body.reserve(location.len() + 12);
         self.body.extend_from_slice(b"Location: ");
         self.body.extend_from_slice(location);
-    }
-}
-
-/// Working with files.
-impl Response {
-    #[inline]
-    /// Creating a new [Response] from files.
-    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
-    /// * file_path = Path to file.
-    /// * type_file = File type.
-    /// # Examples
-    /// ```
-    /// Response::new_from_file("/test_path", "text/html");
-    /// ```
-    pub fn new_from_file<Q: AsRef<Path>, W: Display>(file_path: Q, type_file: W) -> Response {
-        let mut response = RESPONSE_DEF.clone();
-        response.set_file(file_path, type_file);
-        response
     }
 
     #[inline]
