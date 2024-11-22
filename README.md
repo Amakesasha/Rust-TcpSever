@@ -24,7 +24,7 @@
 ## Cargo.toml:
 ``` Toml
 [dependencies]
-rust_tcp_sever = "0.2.2"
+rust_tcp_sever = "0.2.3"
 ```
 ## src/main.rs:
 ``` Rust
