@@ -6,8 +6,8 @@
   <p>
   <!-- prettier-ignore-start -->
   
-  [![github.com](https://img.shields.io/crates/v/rust-tcp-sever?label=github.com)](https://github.com/Amakesasha/Rust-TcpSever)
-  [![license](https://img.shields.io/crates/l/rust-tcp-sever.svg)](https://github.com/Amakesasha/Rust-TcpSever/blob/main/LICENSE)
+  [![gitverse.ru](https://img.shields.io/crates/v/rust-tcp-sever?label=gitverse.ru)](https://gitverse.ru/Amakesasha/Rust-TcpSever)
+  [![license](https://img.shields.io/crates/l/rust-tcp-sever.svg)](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/LICENSE)
   [![crates.io](https://img.shields.io/crates/d/rust-tcp-sever.svg)](https://crates.io/crates/rust_tcp_sever)
   [![Documentation](https://docs.rs/rust_tcp_sever/badge.svg)](https://docs.rs/crate/rust_tcp_sever/latest)
 
@@ -16,11 +16,11 @@
 </div>
 
 # Supported Protocols
-* [Without protocol](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/clean.rs)
-* [HTTP](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples/http_def_start.rs)
+* [Without protocol](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples/clean.rs)
+* [HTTP](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples/http_def_start.rs)
 
 # Usage examples: 
-* See [rest Example](https://github.com/Amakesasha/Rust-TcpSever/tree/main/examples).
+* See [rest Example](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples).
 ## Cargo.toml:
 ``` Toml
 [dependencies]

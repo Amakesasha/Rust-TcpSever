@@ -10,8 +10,8 @@ keywords = ["tcp_server", "web", "tcp", "server"]
 license = "MIT"
 name = "rust_tcp_sever"
 readme = "README.md"
-repository = "https://github.com/Amakesasha/Rust-TcpSever"
-version = "0.2.2"
+repository = "https://gitverse.ru/Amakesasha/Rust-TcpSever"
+version = "0.2.2-gitverse"
 
 [profile.release]
 codegen-units = 1
