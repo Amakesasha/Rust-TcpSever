@@ -1,75 +1,149 @@
 use crate::*;
 
-/// TCP server.
+/// Non-protocol server.
 pub struct CleanServer;
 
-/// Default server functions.
+/// Built-in functions for reading and writing.
 impl CleanServer {
     #[inline]
-    /// Function for reading request.
-    /// * stream = Client IP address.
+    /// Function for reading request into line. 4096 byte buffer!
+    ///
+    /// # Parameters
+    /// * `reader` - An object that provides asynchronous reading of bytes.
+    ///
     /// # Examples
     /// ```
-    /// let stream = TcpStream::connect("Your Ip").unwrap();
-    /// CleanServer::read(&stream).unwrap();
+    /// async fn work(stream: TcpStream) {
+    ///     let read_data = CleanServer::read_string(stream).await.unwrap();
+    ///     println!("{read_data}");
+    /// }
     /// ```
-    pub fn read(mut stream: &TcpStream) -> Option<String> {
-        let mut buffer = [32; 1024];
+    /// or
+    /// ```
+    /// async fn work(stream: TcpStream) {
+    ///     let mut buffer = tokio::io::BufReader::new(stream);
+    ///     let read_data = CleanServer::read_string(&mut buffer).await.unwrap();
+    ///     println!("{read_data}");
+    /// }
+    /// ```
+    pub async fn read_string<R: AsyncReadExt + Unpin>(
+        reader: &mut R,
+    ) -> Result<String, ServerError> {
+        let mut buffer = [32; 4096];
 
-        return match BufReader::new(&mut stream).read(&mut buffer).ok()? {
-            0 => None,
-            _ => Some(String::from_utf8_lossy(&buffer).to_string()),
-        };
+        match reader
+            .read(&mut buffer)
+            .await
+            .map_err(ServerError::WriteError)?
+        {
+            0 => Err(ServerError::EmptyLine),
+            _ => Ok(String::from_utf8_lossy(&buffer).to_string()),
+        }
+    }
+
+    #[inline]
+    /// Function for reading request into bytes. 4096 byte buffer!
+    ///
+    /// # Parameters
+    /// * `reader` - An object that provides asynchronous reading of bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// async fn work(stream: TcpStream) {
+    ///     let read_data = CleanServer::read_bytes(stream).await.unwrap();
+    ///     println!("{read_data:?}");
+    /// }
+    /// ```
+    /// or
+    /// ```
+    /// async fn work(stream: TcpStream) {
+    ///     let mut buffer = tokio::io::BufReader::new(stream);
+    ///     let read_data = CleanServer::read_bytes(&mut buffer).await.unwrap();
+    ///     println!("{read_data:?}");
+    /// }
+    /// ```
+    pub async fn read_bytes<R: AsyncReadExt + Unpin>(
+        reader: &mut R,
+    ) -> Result<Vec<u8>, ServerError> {
+        let mut buffer = [32; 4096];
+
+        match reader
+            .read(&mut buffer)
+            .await
+            .map_err(ServerError::WriteError)?
+        {
+            0 => Err(ServerError::EmptyLine),
+            num => Ok(buffer[0..num].to_vec()),
+        }
     }
 
     #[inline]
     /// Function to write data to [TcpStream].
-    /// * stream = Client IP address.
-    /// * data = Output data.
+    ///
+    /// # Parameters
+    /// * `writer` - An object that provides asynchronous writing of bytes.
+    /// * `data` - Data implementing serialization into bytes for sending over a network.
+    ///
     /// # Examples
     /// ```
-    /// let stream = TcpStream::connect("Your Ip").unwrap();
-    /// HttpServer::write(&stream, b"qweqwe");
+    /// async fn work(stream: TcpStream) {
+    ///     CleanServer::write(stream, "Sample text xD").await.unwrap();
+    /// }
     /// ```
-    pub fn write<Q: AsRef<[u8]>>(mut stream: &TcpStream, data: Q) {
-        BufWriter::new(&mut stream)
+    /// or
+    /// ```
+    /// async fn work(stream: TcpStream) {
+    ///     let mut buffer = tokio::io::BufWriter::new(stream);
+    ///     CleanServer::write(&mut buffer, "Sample text xD").await.unwrap();
+    /// }
+    /// ```
+    pub async fn write<W: AsyncWriteExt + Unpin, Q: AsRef<[u8]>>(
+        writer: &mut W,
+        data: Q,
+    ) -> Result<(), ServerError> {
+        writer
             .write_all(data.as_ref())
-            .unwrap_or(());
+            .await
+            .map_err(ServerError::WriteError)
     }
 }
 
-/// Trait for server operation.
-pub trait CleanControl {
-    #[inline]
+/// Functions for starting and running the server.
+impl CleanServer {
     /// Starting the server.
-    /// * listener = TcpListener.
-    /// * num_thr = Number of threads.
+    ///
+    /// # Parameters
+    /// * `listener` - An asynchronous TCP listener designed for listening to incoming connections.
+    /// * `function` - Asynchronous function for working with TcpStream.
+    ///
     /// # Examples
     /// ```
-    /// fn example() {
-    ///     Server::clean_launch(TcpListener::bind("127.0.0.1:80").unwrap(), 4);
+    /// use rust_tcp_sever::*;
+    /// 
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     CleanServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
     /// }
-    ///
-    /// struct Server;
-    ///
-    /// impl CleanControl for Server {
-    ///     fn work(_stream: &TcpStream) {}
-    /// }
+    /// 
+    /// async fn work(stream: TcpStream) {}
     /// ```
-    fn clean_launch(listener: TcpListener, num_thr: usize) {
-        TypeServer::launch(&listener, TypeServer::Clean(num_thr));
+    pub async fn launch<Fut>(
+        listener: TcpListener,
+        function: impl Fn(TcpStream) -> Fut + Send + Copy + Sync + 'static,
+    ) where
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        println!(
+            "SERVER | CLEAN | {} | LAUCNH",
+            listener.local_addr().unwrap()
+        );
 
-        let mut thread_pool = ThreadStream::new(num_thr, Self::work);
-
-        listener
-            .incoming()
-            .filter_map(Result::ok)
-            .for_each(|stream| thread_pool += stream);
-
-        TypeServer::shotdown(&listener, TypeServer::Clean(num_thr));
+        loop {
+            if let Ok((socket, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    function(socket).await;
+                });
+            }
+        }
     }
-
-    /// Your work with TcpStream;
-    /// * stream = Client IP address.
-    fn work(stream: &mut TcpStream) -> Option<()>;
 }

@@ -4,90 +4,303 @@ use crate::*;
 /// Response.
 pub struct Response {
     /// HTTP status code.
-    pub status_code: String,
+    pub status_code: Vec<u8>,
     /// Response body.
-    pub body: Vec<u8>,
+    pub body: BytesMut,
     /// Response Cookies.
-    pub cookie: ResponseCookies,
+    pub cookies: BytesMut,
     /// Response Headers.
-    pub setting: ResponseHeaders,
+    pub headers: BytesMut,
 }
 
-/// HTTP status code 404.
-static HTTP_404: Lazy<String> = Lazy::new(|| String::from("404 NOT FOUND"));
-/// HTTP status code 302.
-static HTTP_302: Lazy<String> = Lazy::new(|| String::from("302 FOUND"));
-/// HTTP next line.
-static HTTP_NEXT_LINE: Lazy<Vec<u8>> = Lazy::new(|| b"\r\n".to_vec());
+static HTTP_404: Lazy<Vec<u8>> = Lazy::new(|| b"404 NOT FOUND".to_vec());
+static HTTP_302: Lazy<Vec<u8>> = Lazy::new(|| b"302 FOUND".to_vec());
+static HTTP_200: Lazy<Vec<u8>> = Lazy::new(|| b"200 OK".to_vec());
 
 /// [Response] instance to copy and modify.
 pub static RESPONSE_DEF: Lazy<Response> = Lazy::new(|| Response {
     status_code: HTTP_404.clone(),
-    body: Vec::new(),
-
-    cookie: ResponseCookies::default(),
-    setting: ResponseHeaders::default(),
+    ..Response::default()
 });
 
-impl Display for Response {
-    /// Function for converting [Response] into HTTP Response.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "HTTP/1.1 {}\r\n{}{}",
-            self.status_code, self.cookie.0, self.setting.0
-        )
+/// Functions for formatting [Response].
+impl Response {
+    #[inline]
+    /// Translation of [Response] into byte code.
+    /// # Examples
+    /// ```
+    /// Response::new().as_bytes();
+    /// ```
+    pub fn as_bytes(&self) -> Bytes {
+        let mut bytes = BytesMut::with_capacity(
+            11 + self.status_code.len() + self.cookies.len() + self.headers.len() + self.body.len(),
+        );
+
+        bytes.extend_from_slice(b"HTTP/1.1 ");
+        bytes.extend_from_slice(&self.status_code);
+        bytes.extend_from_slice(b"\r\n");
+        bytes.extend_from_slice(&self.cookies);
+        bytes.extend_from_slice(&self.headers);
+        bytes.extend_from_slice(&self.body);
+
+        bytes.freeze()
     }
 }
 
-impl<F: FnOnce(&mut Response)> From<F> for Response {
+/// Functions for creating [Response].
+impl Response {
     #[inline]
-    /// Creating a new instance of a [Response] from a function.
+    /// Creating a default instance of a [Response].
     /// # Examples
     /// ```
-    /// Response::from(|resp: &mut Response| resp.set_response("200 OK", "wer"));
+    /// Response::new();
     /// ```
-    fn from(fn_edit: F) -> Self {
-        let mut response = RESPONSE_DEF.clone();
+    pub fn new() -> Self {
+        RESPONSE_DEF.clone()
+    }
+
+    #[inline]
+    /// Creating a new instance of a [Response] from a status and body.
+    ///
+    /// # Parameters
+    /// * `status` - HTTP status code (e.g., "200 OK", "404 Not Found").
+    /// * `data` - Response body data.
+    ///
+    /// # Examples
+    /// ```
+    /// Response::from_response("200 OK", "All Good :)");
+    /// ```
+    pub fn from_response<Q: AsRef<[u8]>, W: AsRef<[u8]>>(status: Q, data: W) -> Self {
+        let mut response = Response::new();
+        response.set_response(status, data);
+        response
+    }
+
+    #[inline]
+    /// Creating a new instance of a [Response] from a function.
+    ///
+    /// # Parameters
+    /// * `fn_edit` - Function to change [Response].
+    ///
+    /// # Examples
+    /// ```
+    /// Response::from_fn(|resp| resp.set_response("200 OK", "wer"));
+    /// ```
+    pub fn from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Self {
+        let mut response = Response::new();
         fn_edit(&mut response);
         response
     }
-}
 
-impl<P: AsRef<Path>, D: Display> From<(P, D)> for Response {
     #[inline]
-    /// Creating a new [Response] from files.
-    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
+    /// Creating a new instance of a [Response] from construct an HTML.
+    ///
+    /// # Parameters
+    /// * `head` - Function to add content to HTML `<head>`.
+    /// * `body` - Function to add content to HTML `<body>`.
+    ///
     /// # Examples
     /// ```
-    /// Response::from(("/test_path", "text/html"));
+    /// Response::from_html(
+    ///     |resp| resp.echo("Example Head"),
+    ///     |resp| resp.echo("Example Body"),
+    /// );
     /// ```
-    fn from((file_path, type_file): (P, D)) -> Self {
-        let mut response = RESPONSE_DEF.clone();
-        response.set_file(file_path, type_file);
+    pub fn from_html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(
+        &mut self,
+        head: Q,
+        body: W,
+    ) -> Self {
+        let mut response = Response::new();
+        response.html(head, body);
         response
+    }
+
+    #[inline]
+    /// Creating a new instance of a [Response] from files.
+    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
+    ///
+    /// # Parameters
+    /// * `file_path` - Path to the file.
+    /// * `type_file` - Content type of the file.
+    ///
+    /// # Examples
+    /// ```
+    /// Response::from_file("/test_path", "text/html").await.unwrap();
+    /// ```
+    pub async fn from_file<P: AsRef<Path>, D: AsRef<[u8]>>(
+        file_path: P,
+        type_file: D,
+    ) -> Result<Self, std::io::Error> {
+        let mut response = Response::new();
+        response.set_file(file_path, type_file).await?;
+        Ok(response)
     }
 }
 
-//
+/// Functions to change [Response].
+impl Response {
+    #[inline]
+    /// Inserts HTTP code status and data into Response.
+    ///
+    /// # Parameters
+    /// * `status` - HTTP status code (e.g., "200 OK", "404 Not Found").
+    /// * `data` - Response body data.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.set_response("200 OK", "All good");
+    /// ```
+    pub fn set_response<Q: AsRef<[u8]>, W: AsRef<[u8]>>(&mut self, status: Q, data: W) {
+        self.status_code = status.as_ref().to_vec();
+
+        let data = data.as_ref();
+
+        self.body = BytesMut::with_capacity(data.len() + 4);
+        self.body.extend_from_slice(b"\r\n");
+        self.body.extend_from_slice(data);
+    }
+
+    #[inline]
+    /// Redirecting the client to a specific url.
+    ///
+    /// # Parameters
+    /// * `location` - The URL to redirect to.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.set_redirect("/test_url");
+    /// ```
+    pub fn set_redirect<Q: AsRef<[u8]>>(&mut self, location: Q) {
+        self.status_code = HTTP_302.to_vec();
+
+        let location = location.as_ref();
+
+        self.body = BytesMut::with_capacity(location.len() + 12);
+        self.body.extend_from_slice(b"Location: ");
+        self.body.extend_from_slice(location);
+    }
+
+    #[inline]
+    /// Writing a file to [Response].
+    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".
+    ///
+    /// # Parameters
+    /// * `file_path` - Path to the file.
+    /// * `type_file` - Content type of the file.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.set_file("/test_path", "text/html").await.unwrap();
+    /// ```
+    pub async fn set_file<Q: AsRef<Path>, W: AsRef<[u8]>>(
+        &mut self,
+        file_path: Q,
+        type_file: W,
+    ) -> Result<(), std::io::Error> {
+        let file = File::open(file_path).await?;
+        let mut reader = BufReader::new(file);
+        let mut buffer = BytesMut::new();
+        let mut chunk = [0u8; 4096];
+
+        loop {
+            let bytes_read = reader.read(&mut chunk).await?;
+            if bytes_read == 0 {
+                break;
+            }
+
+            buffer.extend_from_slice(&chunk[..bytes_read]);
+        }
+
+        self.status_code = HTTP_200.to_vec();
+        self.body = buffer;
+        self.add_header("Content-Type", type_file);
+        Ok(())
+    }
+}
+
+/// Functions to change Cookies and HTTP Headers.
+impl Response {
+    #[inline]
+    /// Add a cookie.
+    ///
+    /// # Parameters
+    /// * `name` - The cookie name.
+    /// * `value` - The cookie value.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.add_cookie("Name", "Value");
+    /// ```
+    pub fn add_cookie<Q: AsRef<[u8]>, W: AsRef<[u8]>>(&mut self, name: Q, value: W) {
+        self.cookies.extend_from_slice(b"Set-Cookie: ");
+        self.cookies.extend_from_slice(name.as_ref());
+        self.cookies.extend_from_slice(b"=");
+        self.cookies.extend_from_slice(value.as_ref());
+        self.cookies.extend_from_slice(b"\r\n");
+    }
+
+    #[inline]
+    /// Delete a cookie.
+    ///
+    /// # Parameters
+    /// * `name` - The cookie name to delete.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.delete_cookie("Name");
+    /// ```
+    pub fn delete_cookie<Q: AsRef<[u8]>>(&mut self, name: Q) {
+        self.cookies.extend_from_slice(b"Set-Cookie: ");
+        self.cookies.extend_from_slice(name.as_ref());
+        self.cookies
+            .extend_from_slice(b"=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n");
+    }
+
+    #[inline]
+    /// Add a HTTP header.
+    ///
+    /// # Parameters
+    /// * `name` - The header name.
+    /// * `value` - The header value.
+    ///
+    /// # Examples
+    /// ```
+    /// let mut response = Response::new();
+    /// response.set_header("Name", "Value");
+    /// ```
+    pub fn add_header<Q: AsRef<[u8]>, W: AsRef<[u8]>>(&mut self, name: Q, value: W) {
+        self.headers.extend_from_slice(name.as_ref());
+        self.headers.extend_from_slice(b": ");
+        self.headers.extend_from_slice(value.as_ref());
+        self.headers.extend_from_slice(b"\r\n");
+    }
+}
 
 /// HTML file builder.
 impl Response {
     #[inline]
-    /// Function to run [Response::echo].
-    /// * head = Function to create HEAD HTML.
-    /// * body = Function to create BODY HTML.
+    /// Constructs an HTML response.
+    ///
+    /// # Parameters
+    /// * `head` - Function to add content to HTML `<head>`.
+    /// * `body` - Function to add content to HTML `<body>`.
+    ///
     /// # Examples
     /// ```
-    /// let mut response = RESPONSE_DEF.clone();
+    /// let mut response = Response::new();
     /// response.html(
     ///     |resp| resp.echo("Example Head"),
-    ///     |resp| resp.echo("Example Body");,
+    ///     |resp| resp.echo("Example Body"),
     /// );
     /// ```
     pub fn html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(&mut self, head: Q, body: W) {
-        self.status_code = HTTP_404.clone();
-        self.body = HTTP_NEXT_LINE.clone();
+        self.set_response(HTTP_200.clone(), "\r\n");
 
         self.body.extend_from_slice(b"<html><head>");
         head(self);
@@ -99,10 +312,13 @@ impl Response {
     #[inline]
     /// Adding a line to html. If you use outside [Response::html],
     /// run self.set_response("200 OK", ""); before using.
-    /// * data = Line to add.
+    ///
+    /// # Parameters
+    /// * `data` - The data to be added to the response body.
+    ///
     /// # Examples
     /// ```
-    /// let mut response = RESPONSE_DEF.clone();
+    /// let mut response = Response::new();
     /// response.html(
     ///     |resp| resp.echo("Example Head"),
     ///     |resp| resp.echo("Example Body");,
@@ -110,126 +326,5 @@ impl Response {
     /// ```
     pub fn echo<Q: AsRef<[u8]>>(&mut self, data: Q) {
         self.body.extend_from_slice(data.as_ref());
-    }
-}
-
-//
-
-/// Functions to change [Response].
-impl Response {
-    #[inline]
-    /// Inserts HTTP code status and data into Response.
-    /// * status = HTTP code status.
-    /// * data = Recorded data.
-    /// # Examples
-    /// ```
-    /// let mut response = RESPONSE_DEF.clone();
-    /// response.set_response("200 OK", "All good");
-    /// ```
-    pub fn set_response<Q, W: AsRef<[u8]>>(&mut self, status: Q, string_data: W)
-    where
-        String: From<Q>,
-    {
-        self.status_code = String::from(status);
-
-        let data = string_data.as_ref();
-
-        self.body.clear();
-        self.body.reserve(data.len() + 4);
-        self.body.extend_from_slice(b"\r\n");
-        self.body.extend_from_slice(data);
-    }
-
-    #[inline]
-    /// Redirecting the client to a specific url.
-    /// * location = Redirect url.
-    /// # Examples
-    /// ```
-    /// let mut response = RESPONSE_DEF.clone();
-    /// response.set_redirect("/test_url");
-    /// ```
-    pub fn set_redirect<Q: AsRef<[u8]>>(&mut self, location: Q) {
-        self.status_code = HTTP_302.clone();
-
-        let location = location.as_ref();
-
-        self.body.clear();
-        self.body.reserve(location.len() + 12);
-        self.body.extend_from_slice(b"Location: ");
-        self.body.extend_from_slice(location);
-    }
-
-    #[inline]
-    /// Writing a file to [Response].
-    /// If the file cannot be opened or read, the status_code will be written "404 NOT FOUND".=
-    /// * file_path = Path to file.
-    /// * type_file = File type.
-    /// # Examples
-    /// ```
-    /// let mut response = RESPONSE_DEF.clone();
-    /// response.set_file("/test_path", "text/html");
-    /// ```
-    pub fn set_file<Q: AsRef<Path>, W: Display>(&mut self, file_path: Q, type_file: W) {
-        if let Ok(mut file) = File::open(file_path) {
-            let mut buffer = Vec::new();
-
-            if file.read_to_end(&mut buffer).is_ok() {
-                self.set_response("200 OK", buffer);
-                self.setting += ("Content-Type", type_file);
-
-                return;
-            }
-        }
-
-        self.status_code = HTTP_404.clone();
-    }
-}
-
-//
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// ResponseCookies.
-pub struct ResponseCookies(pub String);
-
-impl<Q: Display, W: Display> AddAssign<(Q, W)> for ResponseCookies {
-    #[inline]
-    /// Adding Responsecookies.
-    /// # Examples
-    /// ```
-    /// let mut cookies = ResponseCookies::default();
-    /// cookies += ("testName", "testVale");
-    /// ```
-    fn add_assign(&mut self, (name, value): (Q, W)) {
-        self.0 += &format!("Set-Cookie: {name}={value}\r\n");
-    }
-}
-
-impl<Q: Display> SubAssign<Q> for ResponseCookies {
-    #[inline]
-    /// Deleting Responsecookies.
-    /// # Examples
-    /// ```
-    /// let mut cookies = ResponseCookies::default();
-    /// cookies -= "testName";
-    /// ```
-    fn sub_assign(&mut self, name: Q) {
-        self.0 += &format!("Set-Cookie: {name}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT\r\n");
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
-/// [Response] Settings.
-pub struct ResponseHeaders(pub String);
-
-impl<Q: Display, W: Display> AddAssign<(Q, W)> for ResponseHeaders {
-    #[inline]
-    /// Adding ResponseHeaders.
-    /// # Examples
-    /// ```
-    /// let mut headers = ResponseHeaders::default();
-    /// headers += ("testName", "testValue");
-    /// ```
-    fn add_assign(&mut self, (name, value): (Q, W)) {
-        self.0 += &format!("{name}: {value}\r\n");
     }
 }

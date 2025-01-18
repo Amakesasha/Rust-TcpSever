@@ -1,5 +1,49 @@
-//! A simple and lightweight crate for launching and using a server.
+//! A simple and lightweight asynchronous TCP server crate.
+//!
+//! # Install
+//! Paste this text into your `Cargo.toml`:
+//! ```toml
+//! rust_tcp_sever = "0.3.0"
+//! ```
+//! or
+//! ```
+//! cargo add rust_tcp_sever
+//! ```
+//! 
+//! # Examples
+//! ```
+//! #[tokio::main]
+//! async fn main() {
+//!     HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
+//! }
+//! 
+//! async fn work(request: Request) -> Response {
+//!     Response::from_response("200 OK", "All Good :)")
+//! }
+//! ```
+//! or 
+//! ```
+//! use rust_tcp_sever::*;
+//! 
+//! #[tokio::main]
+//! async fn main() {
+//!     CleanServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
+//! }
+//! 
+//! async fn work(stream: TcpStream) {}
+//! ```
+//! 
+//! # Supported Protocols
+//! * `Without protocol`: [CleanServer]
+//! * `HTTP`: [HttpServer]
+//! 
+//! # Feature flags
+//! * `get_stream`: Adds a `socket_addr` field to the [Request].
+//! * `check_stream`: Allows you to implement custom security measures by enabling address 
+//! verification logic in [HttpServer::launch].
 
+#![feature(async_fn_in_trait)]
+#![feature(type_alias_impl_trait)]
 #![deny(warnings)]
 #![deny(missing_docs)]
 #![deny(dead_code)]
@@ -25,38 +69,32 @@ pub mod http {
 
 /// The remaining files for the server to work.
 pub mod rest {
-    /// Enumeration for displaying information about the server's operation.
-    pub mod server_info;
-    /// Modified ThreadPool (From [Rust-Official-Book](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html))
-    pub mod thread_stream;
+    /// Server error file.
+    pub mod errors;
 }
 
-pub(crate) use crate::rest::{server_info::*, thread_stream::*};
-pub(crate) use once_cell::sync::Lazy;
+pub(crate) use crate::rest::errors::*;
 pub(crate) use std::{
     collections::HashMap,
     convert::AsRef,
-    fmt::Display,
-    fs::File,
-    io::{BufRead, BufReader, BufWriter, Read, Write},
-    ops::{AddAssign, SubAssign},
+    future::Future,
+    marker::{Copy, Send, Sync, Unpin},
+    net::SocketAddr,
     path::Path,
     str::FromStr,
-    sync::{mpsc, Arc, Mutex},
-    thread,
+};
+pub(crate) use {
+    bytes::{Bytes, BytesMut},
+    once_cell::sync::Lazy,
+    thiserror::Error,
+    tokio::{
+        fs::File,
+        io::{self, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, ReadHalf},
+    },
 };
 
 pub use crate::{
     clean::server::*,
     http::{request::*, response::*, server::*},
 };
-pub use std::{
-    net::{TcpListener, TcpStream},
-    time::Duration,
-};
-
-/// Trait for converting 1 type to another, in the Option wrapper.
-pub trait OptionFrom<T>: Sized {
-    /// Function for converting 1 type to another, in the Option shell.
-    fn option_from(value: T) -> Option<Self>;
-}
+pub use tokio::net::{TcpListener, TcpStream};

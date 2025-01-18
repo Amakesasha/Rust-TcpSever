@@ -1,13 +1,13 @@
 <div align="center">
   <h1>Rust TcpSever</h1>
   <p>
-    <strong>Rust TcpSever is a simple and lightweight crate for launching and using a server.</strong>
+    <strong>Rust TcpSever is a simple and lightweight asynchronous library for running and using a server.</strong>
   </p>
   <p>
   <!-- prettier-ignore-start -->
   
-  [![gitverse.ru](https://img.shields.io/crates/v/rust-tcp-sever?label=gitverse.ru)](https://gitverse.ru/Amakesasha/Rust-TcpSever)
-  [![license](https://img.shields.io/crates/l/rust-tcp-sever.svg)](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/LICENSE)
+  [![github.com](https://img.shields.io/crates/v/rust-tcp-sever?label=github.com)](https://github.com/Amakesasha/Rust-TcpSever)
+  [![license](https://img.shields.io/crates/l/rust-tcp-sever.svg)](https://github.com/Amakesasha/Rust-TcpSever/blob/main/README.md)
   [![crates.io](https://img.shields.io/crates/d/rust-tcp-sever.svg)](https://crates.io/crates/rust_tcp_sever)
   [![Documentation](https://docs.rs/rust_tcp_sever/badge.svg)](https://docs.rs/crate/rust_tcp_sever/latest)
 
@@ -16,37 +16,29 @@
 </div>
 
 # Supported Protocols
-* [Without protocol](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples/clean.rs)
-* [HTTP](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples/http_def_start.rs)
+* [Without protocol](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/clean.rs)
+* [HTTP](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/http_def_start.rs)
 
 # Usage examples: 
-* See [rest Example](https://gitverse.ru/Amakesasha/Rust-TcpSever/content/main/examples).
+* See [rest Example](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples).
 ## Cargo.toml:
 ``` Toml
 [dependencies]
-rust_tcp_sever = "0.2.3"
+rust_tcp_sever = "0.3.0"
 ```
 ## src/main.rs:
 ``` Rust
 use rust_tcp_sever::*;
 
-fn main() {
-    Server::http_launch(TcpListener::bind("127.0.0.1:80").unwrap(), 4);
+#[tokio::main]
+async fn main() {
+    HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
 }
 
-struct Server;
-
-impl HttpControl for Server {
-    #[inline]
-    fn check_stream(stream: &TcpStream) -> bool { true }
-
-    #[inline]
-    fn parser_request(_stream: &TcpStream, request: &Request, response: &mut Response) { 
-        println!("{request:#?}");
-        println!("\n\n\n\n");
-        println!("{response:#?}");
-    }
+async fn work(_request: Request) -> Response {
+    Response::from_response("200 OK", "All good work :)")
 }
+
  ```
 
 # Future of the Library

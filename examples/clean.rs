@@ -1,22 +1,14 @@
 use rust_tcp_sever::*;
 
-fn main() {
-    // Running the server in 4 threads.
-    Server::clean_launch(TcpListener::bind("127.0.0.1:4").unwrap(), 4);
+#[tokio::main]
+async fn main() {
+    CleanServer::launch(TcpListener::bind("127.0.0.1:1").await.unwrap(), work).await;
 }
 
-struct Server;
+async fn work(mut stream: TcpStream) {
+    for _ in 0..3 {
+        println!("{}", CleanServer::read_string(&mut stream).await.unwrap());
 
-impl CleanControl for Server {
-    #[inline]
-    // Function for working with Stream.
-    fn work(stream: &mut TcpStream) -> Option<()> {
-        for _ in 0..3 {
-            println!("{}", CleanServer::read(stream).unwrap());
-
-            CleanServer::write(stream, "qwe");
-        }
-
-        Some(())
+        CleanServer::write(&mut stream, "qwe").await.unwrap();
     }
 }

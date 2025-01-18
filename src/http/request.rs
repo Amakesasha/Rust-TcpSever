@@ -1,41 +1,62 @@
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-/// Request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Represents a parsed HTTP request, containing method, URL, headers, body, and more.
+/// Includes fields for host, cookies, and an optional socket address.
 pub struct Request {
-    /// Request method.
+    #[cfg(feature = "get_stream")]
+    /// Client socket address, available when `get_stream` feature is enabled.
+    pub socket_addr: SocketAddr,
+    /// HTTP request method (GET, POST, etc.).
     pub method: HttpMethod,
-    /// Request URL.
+    /// Requested URL path.
     pub url: String,
-
-    /// Host.
+    /// Optional `Host` header.
     pub host: Option<String>,
-    /// Cookies.
+    /// Request cookies as key-value pairs.
     pub cookies: HashMap<String, String>,
-
-    /// HTTP headers.
+    /// HTTP request headers as key-value pairs.
     pub headers: HashMap<String, String>,
-    /// HTTP body.
+    /// Request body as a byte vector.
     pub body: Vec<u8>,
 }
 
-impl OptionFrom<&mut TcpStream> for Request {
+/// Functions for creating [Request].
+impl Request {
     #[inline]
-    fn option_from(stream: &mut TcpStream) -> Option<Request> {
-        let mut reader = BufReader::new(stream);
-        let mut request_line = String::new();
+    /// Constructs a `Request` from a `TcpStream`'s read half.
+    ///
+    /// # Parameters
+    /// * `read_half` - The read half of a `TcpStream`.
+    /// * `adder` - Optional socket address of the client.
+    pub(crate) async fn result_from(
+        read_half: &mut ReadHalf<TcpStream>,
+        adder: Option<SocketAddr>,
+    ) -> Result<Request, ServerError> {
+        #[cfg(not(feature = "get_stream"))]
+        let _ = adder;
 
-        if reader.read_line(&mut request_line).ok()? == 0 {
-            return None;
+        let mut reader = BufReader::new(read_half);
+        let mut request_line = String::with_capacity(100);
+
+        if reader
+            .read_line(&mut request_line)
+            .await
+            .map_err(ServerError::ReadError)?
+            == 0
+        {
+            return Err(ServerError::EmptyRequest);
         }
 
-        let parts: Vec<&str> = request_line.trim().split_whitespace().collect();
+        let parts: Vec<&str> = request_line.split_whitespace().collect();
         if parts.len() != 3 {
-            return None;
+            return Err(ServerError::BrokenFirstLine);
         }
 
         let mut request = Request {
-            method: parts[0].parse().ok()?,
+            #[cfg(feature = "get_stream")]
+            socket_addr: adder.ok_or_else(|| ServerError::SocketAddrEmpty)?,
+            method: parts[0].parse()?,
             url: parts[1].to_string(),
 
             host: None,
@@ -45,13 +66,19 @@ impl OptionFrom<&mut TcpStream> for Request {
             body: Vec::new(),
         };
 
-        while let Some(header_line) = Self::read_header_line(&mut reader) {
-            let header_parts: Vec<&str> = header_line.trim().splitn(2, ':').collect();
-            if header_parts.len() == 2 {
-                request.headers.insert(
-                    header_parts[0].trim().to_string(),
-                    header_parts[1].trim().to_string(),
-                );
+        loop {
+            match Self::read_header_line(&mut reader).await {
+                Ok(header_line) => {
+                    let header_parts: Vec<&str> = header_line.trim().splitn(2, ':').collect();
+                    if header_parts.len() == 2 {
+                        request.headers.insert(
+                            header_parts[0].trim().to_string(),
+                            header_parts[1].trim().to_string(),
+                        );
+                    }
+                }
+                Err(ServerError::EmptyLine) => break,
+                Err(e) => return Err(e),
             }
         }
 
@@ -61,7 +88,7 @@ impl OptionFrom<&mut TcpStream> for Request {
             .and_then(|val| val.parse::<usize>().ok())
         {
             let mut body = vec![0; length];
-            if reader.read_exact(&mut body).is_ok() {
+            if reader.read_exact(&mut body).await.is_ok() {
                 request.body = body;
             }
         }
@@ -73,28 +100,29 @@ impl OptionFrom<&mut TcpStream> for Request {
             request.host = Some(host);
         }
 
-        Some(request)
+        Ok(request)
     }
-}
 
-impl Request {
     #[inline]
-    /// Helper function for reading header lines
-    /// * reader = Buffer Reader.
-    pub fn read_header_line(reader: &mut BufReader<&mut TcpStream>) -> Option<String> {
-        let mut header_line = String::new();
-        if reader.read_line(&mut header_line).ok()? == 0 || header_line.trim().is_empty() {
-            return None;
+    async fn read_header_line(
+        reader: &mut BufReader<&mut ReadHalf<TcpStream>>,
+    ) -> Result<String, ServerError> {
+        let mut header_line = String::with_capacity(150);
+        if reader
+            .read_line(&mut header_line)
+            .await
+            .map_err(ServerError::ReadError)?
+            == 0
+            || header_line.trim_end().is_empty()
+        {
+            return Err(ServerError::EmptyLine);
         }
 
-        Some(header_line)
+        Ok(header_line)
     }
 
     #[inline]
-    /// Function for parsing a string in a [HashMap].
-    /// * data = Parsing string.
-    /// * char_split = Divide symbol.
-    pub fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
+    fn get_data(data: &str, char_split: &str) -> HashMap<String, String> {
         data.split(char_split)
             .filter_map(|part| {
                 let mut split = part.splitn(2, '=');
@@ -138,7 +166,7 @@ pub enum HttpMethod {
 }
 
 impl FromStr for HttpMethod {
-    type Err = bool;
+    type Err = ServerError;
 
     #[inline]
     fn from_str(data: &str) -> Result<HttpMethod, Self::Err> {
@@ -152,7 +180,7 @@ impl FromStr for HttpMethod {
             "OPTIONS" => Ok(HttpMethod::Options),
             "TRACE" => Ok(HttpMethod::Trace),
             "PATCH" => Ok(HttpMethod::Patch),
-            _ => Err(false),
+            _ => Err(ServerError::UnknownMethod(data.to_string())),
         }
     }
 }

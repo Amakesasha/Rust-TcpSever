@@ -1,21 +1,25 @@
 use rust_tcp_sever::*;
 
-fn main() {
-    set_def_pages!(
-        ("404 NOT FOUND", Response::from(("404.html", "text/html")))
-    );
+#[tokio::main]
+async fn main() {
+    set_def_pages!((
+        "404 NOT FOUND",
+        Response::from_file("404.html", "text/html").await.unwrap()
+    ));
 
-    Server::http_launch(TcpListener::bind("127.0.0.1:80").unwrap(), 4);
+    #[cfg(feature = "check_stream")]
+    HttpServer::launch(TcpListener::bind("127.0.0.1:2").await.unwrap(), check, work).await;
+    #[cfg(not(feature = "check_stream"))]
+    HttpServer::launch(TcpListener::bind("127.0.0.1:2").await.unwrap(), work).await;
 }
 
-struct Server;
+#[inline]
+#[cfg(feature = "check_stream")]
+async fn check(_addr: std::net::SocketAddr) -> bool {
+    true
+}
 
-impl HttpControl for Server {
-    #[inline]
-    fn check_stream(_stream: &TcpStream) -> bool {
-        true
-    }
-
-    #[inline]
-    fn parser_request(_stream: &TcpStream, _request: &Request, _response: &mut Response) {}
+#[inline]
+async fn work(_request: Request) -> Response {
+    Response::new()
 }

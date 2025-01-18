@@ -1,6 +1,4 @@
 /target
 /examples_rs
 /server_tests
-/tests_run.bat
-/tests_build.bat
-/tests_examples.bat
+/bat
