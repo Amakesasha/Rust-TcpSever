@@ -24,11 +24,6 @@ pub struct Request {
 /// Functions for creating [Request].
 impl Request {
     #[inline]
-    /// Constructs a `Request` from a `TcpStream`'s read half.
-    ///
-    /// # Parameters
-    /// * `read_half` - The read half of a `TcpStream`.
-    /// * `adder` - Optional socket address of the client.
     pub(crate) async fn result_from(
         read_half: &mut ReadHalf<TcpStream>,
         adder: Option<SocketAddr>,

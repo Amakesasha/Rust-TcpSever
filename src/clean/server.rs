@@ -119,12 +119,12 @@ impl CleanServer {
     /// # Examples
     /// ```
     /// use rust_tcp_sever::*;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     CleanServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
     /// }
-    /// 
+    ///
     /// async fn work(stream: TcpStream) {}
     /// ```
     pub async fn launch<Fut>(

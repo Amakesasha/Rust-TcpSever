@@ -23,10 +23,17 @@ pub enum ServerError {
     UnknownMethod(String),
     /// Indicates an error occurred when getting the Socket Address.
     #[error("Error getting Socket Adder")]
-    GetSocketAddr(std::io::Error),
+    ErrorGetNetAddr(std::io::Error),
     /// Indicates that the socket address was empty when it was expected to have value.
     #[error("The socket address was empty, although it was expected to have a value")]
     SocketAddrEmpty,
+
+    /// The provided path is not a file.
+    #[error("The provided path is not a file")]
+    FolderInsteadFile,
+    /// The file is missing or something is blocking it from opening
+    #[error("The file is missing or something is blocking it from opening")]
+    ErrorOpeningFile(std::io::Error),
 
     /// Indicates an error occurred while reading data from a source.
     #[error("Reading error")]

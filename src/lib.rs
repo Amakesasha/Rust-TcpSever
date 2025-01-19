@@ -9,37 +9,37 @@
 //! ```
 //! cargo add rust_tcp_sever
 //! ```
-//! 
+//!
 //! # Examples
 //! ```
 //! #[tokio::main]
 //! async fn main() {
 //!     HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
 //! }
-//! 
+//!
 //! async fn work(request: Request) -> Response {
 //!     Response::from_response("200 OK", "All Good :)")
 //! }
 //! ```
-//! or 
+//! or
 //! ```
 //! use rust_tcp_sever::*;
-//! 
+//!
 //! #[tokio::main]
 //! async fn main() {
 //!     CleanServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
 //! }
-//! 
+//!
 //! async fn work(stream: TcpStream) {}
 //! ```
-//! 
+//!
 //! # Supported Protocols
 //! * `Without protocol`: [CleanServer]
 //! * `HTTP`: [HttpServer]
-//! 
+//!
 //! # Feature flags
 //! * `get_stream`: Adds a `socket_addr` field to the [Request].
-//! * `check_stream`: Allows you to implement custom security measures by enabling address 
+//! * `check_stream`: Allows you to implement custom security measures by enabling address
 //! verification logic in [HttpServer::launch].
 
 #![feature(async_fn_in_trait)]
@@ -88,7 +88,7 @@ pub(crate) use {
     once_cell::sync::Lazy,
     thiserror::Error,
     tokio::{
-        fs::File,
+        fs::{self, File},
         io::{self, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, ReadHalf},
     },
 };

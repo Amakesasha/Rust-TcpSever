@@ -84,7 +84,17 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// Response::from_fn(|resp| resp.set_response("200 OK", "wer"));
+    /// Response::from_fn(|resp| {
+    ///     resp.set_response("200 OK", "wer");
+    /// });
+    /// ```
+    /// or
+    /// ```
+    /// Response::from_fn(qwe);
+    ///
+    /// fn qwe(resp: &mut Response) {
+    ///     resp.set_response("200 OK", "wer");
+    /// }
     /// ```
     pub fn from_fn<F: FnOnce(&mut Response)>(fn_edit: F) -> Self {
         let mut response = Response::new();
@@ -102,17 +112,24 @@ impl Response {
     /// # Examples
     /// ```
     /// Response::from_html(
-    ///     |resp| resp.echo("Example Head"),
-    ///     |resp| resp.echo("Example Body"),
+    ///     |resp| { resp.echo("Example Head"); },
+    ///     |resp| { resp.echo("Example Body"); },
     /// );
     /// ```
-    pub fn from_html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(
-        &mut self,
-        head: Q,
-        body: W,
-    ) -> Self {
+    /// or
+    /// ```
+    /// Response::from_html(head, body);
+    ///     
+    /// fn head(resp: &mut Response) {
+    ///     resp.echo("Example Head");
+    /// }
+    /// fn body(resp: &mut Response) {
+    ///     resp.echo("Example Body");
+    /// }
+    /// ```
+    pub fn from_html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(head: Q, body: W) -> Self {
         let mut response = Response::new();
-        response.html(head, body);
+        response.set_html(head, body);
         response
     }
 
@@ -131,7 +148,7 @@ impl Response {
     pub async fn from_file<P: AsRef<Path>, D: AsRef<[u8]>>(
         file_path: P,
         type_file: D,
-    ) -> Result<Self, std::io::Error> {
+    ) -> Result<Self, ServerError> {
         let mut response = Response::new();
         response.set_file(file_path, type_file).await?;
         Ok(response)
@@ -200,20 +217,22 @@ impl Response {
         &mut self,
         file_path: Q,
         type_file: W,
-    ) -> Result<(), std::io::Error> {
-        let file = File::open(file_path).await?;
-        let mut reader = BufReader::new(file);
-        let mut buffer = BytesMut::new();
-        let mut chunk = [0u8; 4096];
-
-        loop {
-            let bytes_read = reader.read(&mut chunk).await?;
-            if bytes_read == 0 {
-                break;
-            }
-
-            buffer.extend_from_slice(&chunk[..bytes_read]);
+    ) -> Result<(), ServerError> {
+        let metadata = fs::metadata(&file_path)
+            .await
+            .map_err(ServerError::ErrorOpeningFile)?;
+        if !metadata.is_file() {
+            return Err(ServerError::FolderInsteadFile);
         }
+
+        let mut file = File::open(file_path)
+            .await
+            .map_err(ServerError::ErrorOpeningFile)?;
+        let mut buffer = BytesMut::with_capacity(metadata.len() as usize);
+
+        file.read_buf(&mut buffer)
+            .await
+            .map_err(ServerError::ReadError)?;
 
         self.status_code = HTTP_200.to_vec();
         self.body = buffer;
@@ -294,13 +313,29 @@ impl Response {
     /// # Examples
     /// ```
     /// let mut response = Response::new();
-    /// response.html(
-    ///     |resp| resp.echo("Example Head"),
-    ///     |resp| resp.echo("Example Body"),
+    /// response.set_html(
+    ///     |resp| { resp.echo("Example Head"); },
+    ///     |resp| { resp.echo("Example Body"); },
     /// );
     /// ```
-    pub fn html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(&mut self, head: Q, body: W) {
-        self.set_response(HTTP_200.clone(), "\r\n");
+    /// or
+    /// ```
+    /// let mut response = Response::new();
+    /// response.set_html(head, body);
+    ///     
+    /// fn head(resp: &mut Response) {
+    ///     resp.echo("Example Head");
+    /// }
+    /// fn body(resp: &mut Response) {
+    ///     resp.echo("Example Body");
+    /// }
+    /// ```
+    pub fn set_html<Q: FnOnce(&mut Response), W: FnOnce(&mut Response)>(
+        &mut self,
+        head: Q,
+        body: W,
+    ) {
+        self.set_response(b"200 OK", "");
 
         self.body.extend_from_slice(b"<html><head>");
         head(self);
@@ -310,19 +345,17 @@ impl Response {
     }
 
     #[inline]
-    /// Adding a line to html. If you use outside [Response::html],
-    /// run self.set_response("200 OK", ""); before using.
+    /// Adding a line to html. If you use outside [Response::set_html],
+    /// run resp.set_response("200 OK", ""); before using.
     ///
     /// # Parameters
     /// * `data` - The data to be added to the response body.
     ///
     /// # Examples
     /// ```
-    /// let mut response = Response::new();
-    /// response.html(
-    ///     |resp| resp.echo("Example Head"),
-    ///     |resp| resp.echo("Example Body");,
-    /// );
+    /// let mut resp = Response::new();
+    /// resp.set_response("200 OK", "");
+    /// resp.echo("Example Body");
     /// ```
     pub fn echo<Q: AsRef<[u8]>>(&mut self, data: Q) {
         self.body.extend_from_slice(data.as_ref());

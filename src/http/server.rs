@@ -55,12 +55,12 @@ impl HttpServer {
     /// # Examples
     /// ```
     /// use rust_tcp_sever::*;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), check, work).await;
     /// }
-    /// 
+    ///
     /// async fn check(_stream: std::net::SocketAddr) -> bool { true }
     /// async fn work(_request: Request) -> Response {
     ///     Response::from_response("200 OK", "All Good :)")
@@ -88,12 +88,12 @@ impl HttpServer {
     /// # Examples
     /// ```
     /// use rust_tcp_sever::*;
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
     /// }
-    /// 
+    ///
     /// async fn work(_request: Request) -> Response {
     ///     Response::from_response("200 OK", "All Good :)")
     /// }
