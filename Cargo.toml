@@ -1,3 +1,9 @@
+[dependencies.dashmap]
+version = "6.1.0"
+[dependencies.itoa]
+version = "1.0.14"
+[dependencies.http]
+version = "1.2.0"
 [dependencies.bytes]
 version = "1.9.0"
 [dependencies.tokio]
@@ -13,23 +19,18 @@ authors = ["AmakeSasha <amakesasha@gmail.com>"]
 categories = ["web-programming::http-server", "web-programming"]
 description = "A simple and lightweight asynchronous TCP server crate."
 edition = "2018"
-keywords = ["tcp_server", "async", "web", "tcp", "server"]
+keywords = ["tcp_server", "http", "async", "web", "tcp", "server"]
 license = "MIT"
-name = "rust_tcp_sever"
+name = "maker_web"
 readme = "README.md"
-repository = "https://github.ru/Amakesasha/Rust-TcpSever"
-version = "0.3.0"
+repository = "https://github.com/Amakesasha/MakerWeb"
+version = "0.3.1"
 
 [profile.release]
 codegen-units = 1
 debug = 0
 lto = true
-opt-level = 3
+opt-level = 'z'
 overflow-checks = false
 panic = "abort"
 rpath = false
-
-[features]
-default = []
-get_stream = []
-check_stream = []

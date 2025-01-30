@@ -1,8 +1,9 @@
-use rust_tcp_sever::*;
+use rust_tcp_sever::CleanServer;
+use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
 async fn main() {
-    CleanServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
+    CleanServer::launch(TcpListener::bind("127.0.0.1:1").await.unwrap(), work).await;
 }
 
 async fn work(mut stream: TcpStream) {

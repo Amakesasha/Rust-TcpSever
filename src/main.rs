@@ -1,27 +1,19 @@
-use rust_tcp_sever::*;
+use http::StatusCode;
+use rust_tcp_sever::{set_def_pages, HttpServer, Request, Response, DEF_PAGES};
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
-    set_def_pages!((
-        "404 NOT FOUND",
-        Response::from_file("examples_rs/webpage.html", "text/html")
-            .await
-            .unwrap()
-    ));
+    set_def_pages!((StatusCode::NOT_FOUND, Response::from_body("All Good)")));
 
-    #[cfg(feature = "check_stream")]
-    HttpServer::launch(
+    HttpServer::launch_with_check(
         TcpListener::bind("127.0.0.1:80").await.unwrap(),
-        check,
         work,
-    )
-    .await;
-    #[cfg(not(feature = "check_stream"))]
-    HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
+        check,
+    ).await;
 }
 
 #[inline]
-#[cfg(feature = "check_stream")]
 async fn check(_addr: std::net::SocketAddr) -> bool {
     true
 }

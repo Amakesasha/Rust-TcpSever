@@ -1,22 +1,10 @@
-use rust_tcp_sever::*;
+use http::{StatusCode, Uri};
+use rust_tcp_sever::{HttpServer, Request, Response};
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
-    #[cfg(feature = "check_stream")]
-    HttpServer::launch(
-        TcpListener::bind("127.0.0.1:80").await.unwrap(),
-        check,
-        work,
-    )
-    .await;
-    #[cfg(not(feature = "check_stream"))]
-    HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
-}
-
-#[inline]
-#[cfg(feature = "check_stream")]
-async fn check(_addr: std::net::SocketAddr) -> bool {
-    true
+    HttpServer::launch(TcpListener::bind("127.0.0.1:3").await.unwrap(), work).await;
 }
 
 #[inline]
@@ -24,7 +12,7 @@ async fn work(request: Request) -> Response {
     let mut response = Response::new();
 
     // Sending files
-    match request.url.as_str() {
+    match request.url.path() {
         "/webpage.html" => response
             .set_file("examples_rs/webpage.html", "text/html")
             .await
@@ -52,25 +40,30 @@ async fn work(request: Request) -> Response {
         _ => {}
     }
 
-    match request.url.as_str() {
-        // Function from PHP.
-        "/echo" => echo(&mut response),
+    match request.url.path() {
         // Example of working with "Cookies" and "Headers".
         "/cookies_headers" => cookies_headers(&mut response),
         // Manually entering a response.
-        "/all_good" => response.set_response("200 OK", "All Good :>"),
+        "/all_good" => response.set_response(StatusCode::OK, "All Good :>"),
         // Client redirection.
-        "/wer" => response.set_redirect("/response"),
+        "/redirect_str" => response.set_redirect_str("/response"),
+        "/redirect_uri" => response.set_redirect_uri("/foo/bar?baz".parse::<Uri>().unwrap()),
         _ => {}
     }
 
-    match request.url.as_str() {
+    match request.url.path() {
         "/response/new" => response = Response::new(),
-        "/response/clone" => response = RESPONSE_DEF.clone(),
-        "/response/from_response" => response = Response::from_response("200 OK", "<p>123<p>"),
+        "/response/from_response" => {
+            response = Response::from_response(StatusCode::OK, "<p>123<p>")
+        }
+        "/response/from_file" => {
+            response = Response::from_file("examples_rs/webpage.html", "text/html")
+                .await
+                .unwrap()
+        }
         "/response/new_from_fn" => {
             response = Response::from_fn(|resp| {
-                resp.set_response("200 OK", "<p>123<p>");
+                resp.set_response(StatusCode::OK, "<p>123<p>");
 
                 resp.add_cookie("Sample Name", "Sample Text");
                 resp.add_header("Content-Type", "text/html");
@@ -80,23 +73,6 @@ async fn work(request: Request) -> Response {
     }
 
     response
-}
-
-// Function from PHP.
-fn echo(response: &mut Response) {
-    response.set_html(
-        |resp| {
-            // Head
-            resp.echo(r#"<meta charset="utf-8">"#);
-            resp.echo(r#"<title>Sample Name WebPage</title>"#);
-        },
-        |resp| {
-            // Body
-            resp.echo("<h1>123</h1>");
-            resp.echo("<h3>123</h3>");
-            resp.echo("<p>123</p>");
-        },
-    );
 }
 
 // Example of working with "Cookies" and "Headers".

@@ -24,22 +24,24 @@
 ## Cargo.toml:
 ``` Toml
 [dependencies]
-rust_tcp_sever = "0.3.0"
+rust_tcp_sever = "0.3.1"
 ```
 ## src/main.rs:
 ``` Rust
-use rust_tcp_sever::*;
+use rust_tcp_sever::{HttpServer, Request, Response};
+use tokio::net::TcpListener;
+use http::StatusCode;
 
 #[tokio::main]
 async fn main() {
     HttpServer::launch(TcpListener::bind("127.0.0.1:80").await.unwrap(), work).await;
 }
 
+#[inline]
 async fn work(_request: Request) -> Response {
-    Response::from_response("200 OK", "All good work :)")
+    Response::from_response(StatusCode::OK, "All Good :)")
 }
-
- ```
+```
 
 # Future of the Library
 
