@@ -1,34 +1,34 @@
 <div align="center">
-  <h1>Rust TcpSever</h1>
+  <h1>MakerWeb</h1>
   <p>
-    <strong>Rust TcpSever is a simple and lightweight asynchronous library for running and using a server.</strong>
+    <strong>MakerWeb is a simple and lightweight asynchronous library for running and using a server.</strong>
   </p>
   <p>
   <!-- prettier-ignore-start -->
   
-  [![github.com](https://img.shields.io/crates/v/rust-tcp-sever?label=github.com)](https://github.com/Amakesasha/Rust-TcpSever)
-  [![license](https://img.shields.io/crates/l/rust-tcp-sever.svg)](https://github.com/Amakesasha/Rust-TcpSever/blob/main/README.md)
-  [![crates.io](https://img.shields.io/crates/d/rust-tcp-sever.svg)](https://crates.io/crates/rust_tcp_sever)
-  [![Documentation](https://docs.rs/rust_tcp_sever/badge.svg)](https://docs.rs/crate/rust_tcp_sever/latest)
+  [![github.com](https://img.shields.io/crates/v/maker-web?label=github.com)](https://github.com/Amakesasha/MakerWeb)
+  [![license](https://img.shields.io/crates/l/maker-web.svg)](https://github.com/Amakesasha/MakerWeb/blob/main/README.md)
+  [![crates.io](https://img.shields.io/crates/d/maker-web.svg)](https://crates.io/crates/maker-web)
+  [![Documentation](https://docs.rs/maker-web/badge.svg)](https://docs.rs/crate/maker-webr/latest)
 
   <!-- prettier-ignore-end -->
   </p>
 </div>
 
 # Supported Protocols
-* [Without protocol](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/clean.rs)
-* [HTTP](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples/http_def_start.rs)
+* [Without protocol](https://github.com/Amakesasha/MakerWeb/blob/main/examples/clean.rs)
+* [HTTP](https://github.com/Amakesasha/MakerWeb/blob/main/examples/http_def_start.rs)
 
 # Usage examples: 
-* See [rest Example](https://github.com/Amakesasha/Rust-TcpSever/blob/main/examples).
+* See [rest Example](https://github.com/Amakesasha/MakerWeb/blob/main/examples).
 ## Cargo.toml:
 ``` Toml
 [dependencies]
-rust_tcp_sever = "0.3.1"
+maker_web = "0.1.0"
 ```
 ## src/main.rs:
 ``` Rust
-use rust_tcp_sever::{HttpServer, Request, Response};
+use maker_web::{HttpServer, Request, Response};
 use tokio::net::TcpListener;
 use http::StatusCode;
 
