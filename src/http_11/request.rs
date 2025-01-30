@@ -131,7 +131,7 @@ impl Request {
     /// # Examples
     /// ```
     /// use std::collections::HashMap;
-    /// use rust_tcp_sever::Request;
+    /// use maker_web::Request;
     ///
     /// let data = "key1=value1&key2=value2";
     /// let result = Request::parse_query_string(data, '&');

@@ -3,18 +3,18 @@
 //! # Install
 //! Run the following Cargo command in your project directory:
 //! ```terminal
-//! cargo add rust_tcp_sever
+//! cargo add maker_web
 //! ```
 //! Or add the following line to your Cargo.toml:
 //! ```toml
-//! rust_tcp_sever = "0.3.0"
+//! maker_web = "0.3.0"
 //! ```
 //!
 //! # Examples
 //!
 //! `HTTP`:
 //! ```no_run
-//! use rust_tcp_sever::{HttpServer, Request, Response};
+//! use maker_web::{HttpServer, Request, Response};
 //! use tokio::net::TcpListener;
 //!
 //! #[tokio::main]
@@ -28,7 +28,7 @@
 //! ```
 //! `Without protocol`:
 //! ```no_run
-//! use rust_tcp_sever::CleanServer;
+//! use maker_web::CleanServer;
 //! use tokio::net::{TcpListener, TcpStream};
 //!
 //! #[tokio::main]

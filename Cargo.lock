@@ -128,6 +128,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "maker_web"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "dashmap",
+ "http",
+ "itoa",
+ "once_cell",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -222,19 +235,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03a862b389f93e68874fbf580b9de08dd02facb9a788ebadaf4a3fd33cf58834"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "rust_tcp_sever"
-version = "0.3.1"
-dependencies = [
- "bytes",
- "dashmap",
- "http",
- "itoa",
- "once_cell",
- "thiserror",
- "tokio",
 ]
 
 [[package]]

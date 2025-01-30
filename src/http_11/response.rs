@@ -26,7 +26,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     /// use bytes::Bytes;
     ///
@@ -74,7 +74,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let response = Response::new();
@@ -102,7 +102,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let response = Response::from_body("data");
@@ -125,7 +125,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let response = Response::from_response(StatusCode::OK, "data");
@@ -147,7 +147,7 @@ impl Response {
     ///
     /// # Examples
     /// ```   
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let response = Response::from_fn(|resp| {
@@ -173,7 +173,7 @@ impl Response {
     ///
     /// # Examples
     /// ```no_run
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -202,7 +202,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let mut response = Response::new();
@@ -229,7 +229,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::StatusCode;
     ///
     /// let mut response = Response::new();
@@ -256,7 +256,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     /// use http::{Uri, StatusCode};
     ///
     /// let uri: Uri = "/qwe/qwe".parse().unwrap();
@@ -309,7 +309,7 @@ impl Response {
     ///
     /// # Examples
     /// ```no_run
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -356,7 +356,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     ///
     /// let mut response = Response::new();
     /// response.add_cookie("Name", "Value");
@@ -379,7 +379,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     ///
     /// let mut response = Response::new();
     /// response.delete_cookie("Name");
@@ -405,7 +405,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// use rust_tcp_sever::Response;
+    /// use maker_web::Response;
     ///
     /// let mut response = Response::new();
     /// response.add_header("Name", "Value");

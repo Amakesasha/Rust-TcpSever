@@ -7,7 +7,7 @@ pub static DEF_PAGES: Lazy<DashMap<StatusCode, Bytes>> = Lazy::new(DashMap::new)
 /// Macro for setting DEF_PAGES.
 /// # Examples
 /// ```
-/// use rust_tcp_sever::{set_def_pages, DEF_PAGES, Response};
+/// use maker_web::{set_def_pages, DEF_PAGES, Response};
 /// use http::StatusCode;
 ///
 /// set_def_pages!(
@@ -17,7 +17,7 @@ pub static DEF_PAGES: Lazy<DashMap<StatusCode, Bytes>> = Lazy::new(DashMap::new)
 /// ```
 /// or
 /// ```
-/// use rust_tcp_sever::{set_def_pages, DEF_PAGES, Response};
+/// use maker_web::{set_def_pages, DEF_PAGES, Response};
 /// use http::StatusCode;
 ///
 /// set_def_pages!(StatusCode::NOT_FOUND, Response::from_body("Status: 404"));
@@ -55,7 +55,7 @@ impl HttpServer {
     ///
     /// # Examples
     /// ```no_run
-    /// use rust_tcp_sever::{HttpServer, Request, Response};
+    /// use maker_web::{HttpServer, Request, Response};
     /// use tokio::net::TcpListener;
     /// use http::StatusCode;
     ///
@@ -93,7 +93,7 @@ impl HttpServer {
     ///
     /// # Examples
     /// ```no_run
-    /// use rust_tcp_sever::{HttpServer, Request, Response};
+    /// use maker_web::{HttpServer, Request, Response};
     /// use tokio::net::TcpListener;
     /// use http::StatusCode;
     ///

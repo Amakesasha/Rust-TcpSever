@@ -15,7 +15,7 @@ impl CleanServer {
     ///
     /// Reading from [TcpStream]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::net::TcpStream;
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -25,7 +25,7 @@ impl CleanServer {
     /// ```
     /// Reading from [tokio::io::BufReader]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::{io::BufReader, net::TcpStream};
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -55,7 +55,7 @@ impl CleanServer {
     ///
     /// Reading from [TcpStream]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::net::TcpStream;
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -65,7 +65,7 @@ impl CleanServer {
     /// ```
     /// Reading from [tokio::io::BufReader]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::{io::BufReader, net::TcpStream};
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -96,7 +96,7 @@ impl CleanServer {
     ///
     /// Writing to [TcpStream]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::net::TcpStream;
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -105,7 +105,7 @@ impl CleanServer {
     /// ```
     /// Writing to [tokio::io::BufWriter]:
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::{io::BufWriter, net::TcpStream};
     ///
     /// async fn work(mut stream: TcpStream) {
@@ -134,7 +134,7 @@ impl CleanServer {
     ///
     /// # Examples
     /// ```no_run
-    /// use rust_tcp_sever::CleanServer;
+    /// use maker_web::CleanServer;
     /// use tokio::net::{TcpListener, TcpStream};
     ///
     /// #[tokio::main]
